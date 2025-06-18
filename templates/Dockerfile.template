@@ -1,0 +1,24 @@
+FROM python:3.9-slim
+
+# Create user with ID 1000 (required by Hugging Face Spaces)
+RUN useradd -m -u 1000 user
+
+# Switch to the user
+USER user
+
+# Set environment variables
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
+
+# Set working directory
+WORKDIR $HOME/app
+
+# Copy Data Lifeboat files (preserve exact structure)
+COPY --chown=user:user . .
+
+# Expose port 7860 (default for HF Spaces)
+EXPOSE 7860
+
+# Start Python HTTP server to serve static files
+# This serves the Data Lifeboat exactly as-is with no modifications
+CMD ["python", "-m", "http.server", "7860", "--bind", "0.0.0.0"]

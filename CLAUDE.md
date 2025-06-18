@@ -123,6 +123,26 @@ Processed Dataset Repository:
 └── dataset_info.json           # Dataset configuration
 ```
 
+### Docker Space Hosting
+
+#### **New Feature: Interactive Data Lifeboat Viewer**
+The converter now supports creating **Docker Spaces** that serve Data Lifeboats as interactive web applications:
+
+```bash
+# Create a Docker Space for web viewing
+uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-docker-space username/space-name --private
+
+# Link to a related dataset
+uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-docker-space username/space-name --dataset-repo-id username/dataset-name
+```
+
+#### **Docker Space Features**
+- **Zero modifications** - Serves Data Lifeboat exactly as designed
+- **Python HTTP server** - Simple, reliable static file serving
+- **Landing page** - Clean index.html with navigation buttons
+- **Direct viewer access** - Easy navigation to all viewer features
+- **HF Space benefits** - Free hosting, version control, sharing
+
 ### Next Steps
 
 #### **High Priority**
@@ -136,6 +156,7 @@ Processed Dataset Repository:
 - **Validation checks** to ensure Data Lifeboat completeness before upload
 - **Custom dataset splits** (train/validation/test) for ML applications
 - **Geographic filtering** for location-based subsets
+- **Combined workflow** - Create Space + Dataset in one command
 
 ### Data Quality and Validation
 

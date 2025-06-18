@@ -28,6 +28,181 @@ from PIL import Image as PILImage
 from lifeboat_to_hf import LifeboatLoader, LifeboatToPolars, Photo
 
 
+class LifeboatToDockerSpace:
+    """Create Docker Space from Data Lifeboat for web hosting"""
+
+    def __init__(self, lifeboat_path: Path):
+        self.lifeboat_path = Path(lifeboat_path)
+        self.loader = LifeboatLoader(lifeboat_path)
+
+    def create_dockerfile(self) -> str:
+        """Generate Dockerfile for serving Data Lifeboat"""
+        dockerfile_template = Path("templates/Dockerfile.template")
+        if dockerfile_template.exists():
+            return dockerfile_template.read_text()
+        else:
+            # Fallback inline template
+            return """FROM python:3.9-slim
+
+# Create user with ID 1000 (required by Hugging Face Spaces)
+RUN useradd -m -u 1000 user
+
+# Switch to the user
+USER user
+
+# Set environment variables
+ENV HOME=/home/user \\
+    PATH=/home/user/.local/bin:$PATH
+
+# Set working directory
+WORKDIR $HOME/app
+
+# Copy Data Lifeboat files (preserve exact structure)
+COPY --chown=user:user . .
+
+# Expose port 7860 (default for HF Spaces)
+EXPOSE 7860
+
+# Start Python HTTP server to serve static files
+# This serves the Data Lifeboat exactly as-is with no modifications
+CMD ["python", "-m", "http.server", "7860", "--bind", "0.0.0.0"]"""
+
+    def create_space_readme(self, repo_id: str, dataset_repo_id: Optional[str] = None) -> str:
+        """Generate README.md for HuggingFace Space"""
+        lifeboat_meta = self.loader.load_lifeboat_metadata()
+        
+        # Load template
+        readme_template = Path("templates/space_readme.template")
+        if readme_template.exists():
+            template = readme_template.read_text()
+        else:
+            # Fallback inline template (abbreviated)
+            template = """---
+title: "{lifeboat_name} - Data Lifeboat Viewer"
+emoji: 🚢
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+---
+
+# {lifeboat_name} - Data Lifeboat Viewer
+
+Interactive **Data Lifeboat** viewer from the [Flickr Foundation](https://www.flickr.org/).
+
+## 🖼️ View the Collection
+
+**Main Entry Points:**
+- **[📷 Browse Photos](viewer/list_photos.html)** - View all photos with filtering and sorting
+- **[🏷️ Browse Tags](viewer/list_tags.html)** - Explore by tags and keywords  
+- **[📊 Collection Data](viewer/data.html)** - Statistics and metadata overview
+
+## 🤖 Machine Learning Dataset
+
+{dataset_link}
+
+## 📖 About Data Lifeboats
+
+**Purpose:** {lifeboat_purpose}
+
+*Generated with [Claude Code](https://claude.ai/code)*"""
+
+        # Fill in template variables
+        dataset_link = ""
+        if dataset_repo_id:
+            dataset_link = f"This Data Lifeboat is also available as a processed **HuggingFace Dataset**:\n\n**[📊 {dataset_repo_id}](https://huggingface.co/datasets/{dataset_repo_id})** - ML-ready format"
+        else:
+            dataset_link = "This collection can be processed into a HuggingFace Dataset format for machine learning applications."
+
+        return template.format(
+            lifeboat_name=lifeboat_meta.name,
+            dataset_name=dataset_repo_id or "dataset-name",
+            lifeboat_purpose=lifeboat_meta.purpose,
+            lifeboat_considerations=lifeboat_meta.futureConsiderations,
+            dataset_link=dataset_link
+        )
+
+    def create_docker_space(self, repo_id: str, private: bool = True, dataset_repo_id: Optional[str] = None) -> str:
+        """Create and upload Docker Space for Data Lifeboat viewer"""
+        import tempfile
+        import shutil
+
+        api = HfApi()
+        lifeboat_meta = self.loader.load_lifeboat_metadata()
+
+        print(f"Creating Docker Space for Data Lifeboat: {lifeboat_meta.name}")
+        print(f"Target repository: {repo_id}")
+
+        # Create repository
+        try:
+            create_repo(
+                repo_id=repo_id,
+                repo_type="space",
+                space_sdk="docker",
+                private=private,
+                exist_ok=True
+            )
+            print(f"✅ Created/verified Space repository: {repo_id}")
+        except Exception as e:
+            print(f"❌ Error creating repository: {e}")
+            raise
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            
+            print("📁 Copying Data Lifeboat files...")
+            # Copy entire Data Lifeboat structure
+            for item in self.lifeboat_path.iterdir():
+                if item.is_file():
+                    shutil.copy2(item, temp_path / item.name)
+                elif item.is_dir() and not item.name.startswith('.'):
+                    shutil.copytree(item, temp_path / item.name, 
+                                  ignore=shutil.ignore_patterns('.DS_Store', '__pycache__'))
+
+            # Create Dockerfile
+            print("🐳 Creating Dockerfile...")
+            dockerfile_content = self.create_dockerfile()
+            (temp_path / "Dockerfile").write_text(dockerfile_content)
+
+            # Create README.md
+            print("📝 Creating Space README...")
+            readme_content = self.create_space_readme(repo_id, dataset_repo_id)
+            (temp_path / "README.md").write_text(readme_content)
+
+            # Create index.html for better navigation
+            print("🏠 Creating index.html...")
+            index_template = Path("templates/index.html.template")
+            if index_template.exists():
+                index_content = index_template.read_text()
+                index_content = index_content.format(
+                    lifeboat_name=lifeboat_meta.name,
+                    lifeboat_purpose=lifeboat_meta.purpose
+                )
+                (temp_path / "index.html").write_text(index_content)
+
+            # Upload everything
+            print("🚀 Uploading to HuggingFace Spaces...")
+            ignore_patterns = [
+                ".DS_Store", "**/.DS_Store",
+                "**/.git/**", "**/cache/**", 
+                "**/__pycache__/**", "**/*.pyc"
+            ]
+
+            api.upload_folder(
+                repo_id=repo_id,
+                folder_path=str(temp_path),
+                repo_type="space",
+                ignore_patterns=ignore_patterns,
+                commit_message="Upload Data Lifeboat Docker Space"
+            )
+
+        print(f"✅ Docker Space created successfully!")
+        print(f"🌐 Access your Data Lifeboat at: https://huggingface.co/spaces/{repo_id}")
+        print(f"📷 Direct photo browser: https://huggingface.co/spaces/{repo_id}/viewer/list_photos.html")
+
+        return repo_id
+
+
 class LifeboatToHuggingFace:
     """Convert Data Lifeboat to Hugging Face Dataset format"""
 
@@ -135,14 +310,17 @@ class LifeboatToHuggingFace:
                 if comment.id  # Only include comments with valid IDs
             ]
 
+            # Extract file paths using the new method
+            original_path, thumbnail_path = photo.get_file_paths()
+
             # Build record (ordered to match Features)
             record = {
                 # Images first
-                "image": str(self.lifeboat_path / photo.files.original)
-                if photo.files
+                "image": str(self.lifeboat_path / original_path)
+                if original_path
                 else None,
-                "thumbnail": str(self.lifeboat_path / photo.files.thumbnail)
-                if photo.files
+                "thumbnail": str(self.lifeboat_path / thumbnail_path)
+                if thumbnail_path
                 else None,
                 # Core identifiers
                 "photo_id": photo.id,
@@ -174,7 +352,7 @@ class LifeboatToHuggingFace:
                 "safety_level": photo.safetyLevel,
                 "visibility": photo.visibility,
                 "original_format": photo.originalFormat,
-                "media_type": photo.mediaType,
+                "media_type": photo.get_media_type(),
                 # Counts
                 "num_tags": len(photo.tags),
                 "num_albums": len(photo.albumIds),
@@ -322,7 +500,7 @@ task_categories:
 - image-to-text
 - text-retrieval
 - visual-question-answering
-pretty_name: {lifeboat_meta.name}
+pretty_name: "{lifeboat_meta.name}"
 ---
 
 # {lifeboat_meta.name}
@@ -582,7 +760,7 @@ size_categories:
 - {size_cat}
 language:
 - en
-pretty_name: {lifeboat_meta.name} (Raw Data Lifeboat)
+pretty_name: "{lifeboat_meta.name} (Raw Data Lifeboat)"
 ---
 
 # {lifeboat_meta.name} - Raw Data Lifeboat
@@ -964,6 +1142,14 @@ if __name__ == "__main__":
         action="store_true",
         help="Make the dataset private on HuggingFace Hub",
     )
+    parser.add_argument(
+        "--create-docker-space",
+        help="Create a Docker Space for interactive viewing (e.g., 'username/space-name')",
+    )
+    parser.add_argument(
+        "--dataset-repo-id",
+        help="Link to related processed dataset repository (for Docker Space README)",
+    )
 
     # New upload format options
     format_group = parser.add_mutually_exclusive_group()
@@ -988,6 +1174,18 @@ if __name__ == "__main__":
 
     # Convert Data Lifeboat
     converter = LifeboatToHuggingFace(args.lifeboat_path)
+
+    # Handle Docker Space creation
+    if args.create_docker_space:
+        space_creator = LifeboatToDockerSpace(args.lifeboat_path)
+        space_creator.create_docker_space(
+            repo_id=args.create_docker_space,
+            private=args.private,
+            dataset_repo_id=args.dataset_repo_id
+        )
+        # Exit after creating space if no other operations requested
+        if not (args.push_to_hub or args.save_local):
+            exit(0)
 
     # Handle different upload modes
     if args.push_to_hub:

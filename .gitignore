@@ -1,0 +1,38 @@
+# Data Lifeboats (test data)
+Commons_1K_2025/
+Commons-Smiles/
+ENOLA_GAY/
+
+# OS files
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Output directories
+output/
+results/

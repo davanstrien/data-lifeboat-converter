@@ -55,10 +55,29 @@ class ThumbnailInfo(BaseModel):
     height: int
 
 
-class Files(BaseModel):
-    """File paths for photo assets"""
+class DetailedFileInfo(BaseModel):
+    """Detailed file info for older Data Lifeboat format"""
+    path: str
+    label: str
+    content_type: str
+    width: int
+    height: int
+    media: str
+    size: int
+    checksum: str
+
+class SimpleFiles(BaseModel):
+    """Simple files format for newer Data Lifeboats"""
     original: str
     thumbnail: str
+
+class ComplexFiles(BaseModel):
+    """Complex files format for older Data Lifeboats"""
+    original: DetailedFileInfo
+    thumbnail: DetailedFileInfo
+
+# Union type to handle both file formats
+FilesType = Union[SimpleFiles, ComplexFiles]
 
 
 class Location(BaseModel):
@@ -99,8 +118,42 @@ class Photo(BaseModel):
     visibility: Optional[str] = "public"
     originalFormat: Optional[str] = Field(None, alias="originalFormat")
     mediaType: Optional[str] = Field(None, alias="mediaType")
-    files: Optional[Files] = None
+    media: Optional[str] = None  # For older lifeboats
+    files: Optional[FilesType] = None
     comments: List[Comment] = []
+    
+    @field_validator('files', mode='before')
+    @classmethod
+    def validate_files(cls, v):
+        """Handle both simple and complex file formats"""
+        if v is None:
+            return None
+        
+        # Check if it's the simple format (strings)
+        if isinstance(v.get('original'), str) and isinstance(v.get('thumbnail'), str):
+            return SimpleFiles(**v)
+        
+        # Check if it's the complex format (objects)
+        elif isinstance(v.get('original'), dict) and isinstance(v.get('thumbnail'), dict):
+            return ComplexFiles(**v)
+        
+        return v
+    
+    def get_media_type(self) -> str:
+        """Get media type from either field"""
+        return self.mediaType or self.media or "photo"
+    
+    def get_file_paths(self) -> tuple[Optional[str], Optional[str]]:
+        """Extract file paths from either format"""
+        if not self.files:
+            return None, None
+            
+        if isinstance(self.files, SimpleFiles):
+            return self.files.original, self.files.thumbnail
+        elif isinstance(self.files, ComplexFiles):
+            return self.files.original.path, self.files.thumbnail.path
+        else:
+            return None, None
     
     class Config:
         populate_by_name = True
@@ -260,9 +313,23 @@ class LifeboatLoader:
         self.parser = JavaScriptParser()
     
     def load_lifeboat_metadata(self) -> LifeboatMetadata:
-        """Load main collection metadata"""
-        data = self.parser.parse_js_file(self.metadata_path / "lifeboat.js")
-        return LifeboatMetadata(**data)
+        """Load main collection metadata, with defaults for older formats"""
+        lifeboat_file = self.metadata_path / "lifeboat.js"
+        
+        if lifeboat_file.exists():
+            data = self.parser.parse_js_file(lifeboat_file)
+            return LifeboatMetadata(**data)
+        else:
+            # Return default metadata for older lifeboats without lifeboat.js
+            print(f"Warning: No lifeboat.js found, using defaults for {self.root_path.name}")
+            return LifeboatMetadata(
+                id=self.root_path.name.upper(),
+                name=f"Flickr Data Lifeboat: {self.root_path.name}",
+                creator=Creator(id="unknown", name="Unknown Creator"),
+                dateCreated=datetime.now(),
+                purpose="Legacy Data Lifeboat collection",
+                futureConsiderations="This is an older format Data Lifeboat without lifeboat.js metadata."
+            )
     
     def load_photo_index(self) -> Dict[str, PhotoIndexEntry]:
         """Load photo index"""
@@ -369,9 +436,9 @@ class LifeboatToPolars:
                 "safety_level": photo.safetyLevel,
                 "visibility": photo.visibility,
                 "original_format": photo.originalFormat,
-                "media_type": photo.mediaType,
-                "original_path": photo.files.original if photo.files else None,
-                "thumbnail_path": photo.files.thumbnail if photo.files else None,
+                "media_type": photo.get_media_type(),
+                "original_path": photo.get_file_paths()[0],
+                "thumbnail_path": photo.get_file_paths()[1],
                 "num_tags": len(photo.tags),
                 "num_albums": len(photo.albumIds),
                 "num_galleries": len(photo.galleryIds),
