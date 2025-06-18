@@ -58,6 +58,9 @@ This repository includes tools to convert Data Lifeboats to HuggingFace datasets
 - Individual raw uploads with proper `data/Commons_1K_2025/` structure
 - Individual processed uploads with 1,000 photos and full metadata
 - Cross-linking between dataset versions in README cards
+- **Static Space deployment** with app_file approach (ENOLA_GAY collection)
+- **Docker Space deployment** with HTTP server (ENOLA_GAY collection)
+- **Backward compatibility** across all Data Lifeboat format versions
 
 ### Dual Upload Strategy
 
@@ -123,25 +126,78 @@ Processed Dataset Repository:
 └── dataset_info.json           # Dataset configuration
 ```
 
-### Docker Space Hosting
+### HuggingFace Space Hosting
 
-#### **New Feature: Interactive Data Lifeboat Viewer**
-The converter now supports creating **Docker Spaces** that serve Data Lifeboats as interactive web applications:
+The converter supports **two approaches** for hosting Data Lifeboats as interactive web applications on HuggingFace Spaces:
+
+#### **✅ Static Spaces (Recommended)**
+**Zero-modification hosting** using HuggingFace's static space functionality:
 
 ```bash
-# Create a Docker Space for web viewing
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-docker-space username/space-name --private
+# Create a Static Space for web viewing (recommended)
+uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-static-space username/space-name
 
 # Link to a related dataset
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-docker-space username/space-name --dataset-repo-id username/dataset-name
+uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-static-space username/space-name --dataset-repo-id username/dataset-name
 ```
 
-#### **Docker Space Features**
-- **Zero modifications** - Serves Data Lifeboat exactly as designed
-- **Python HTTP server** - Simple, reliable static file serving
-- **Landing page** - Clean index.html with navigation buttons
-- **Direct viewer access** - Easy navigation to all viewer features
-- **HF Space benefits** - Free hosting, version control, sharing
+**How it works:**
+- Uses `app_file: README.html` directive in Space README.md
+- HuggingFace serves Data Lifeboat's `README.html` as the main page
+- **Zero modifications** to the original Data Lifeboat archive
+- All relative paths work correctly (viewer/, metadata/, media/)
+- Preserves exact archival integrity
+
+**Key insight:** The `app_file` directive tells HuggingFace to serve any file as the main entry point instead of the default `index.html`.
+
+#### **Understanding the `app_file` Approach**
+
+The `app_file` directive is a HuggingFace Static Space configuration that solves a fundamental mismatch:
+
+- **Data Lifeboat design**: Uses `README.html` as the entry point  
+- **HuggingFace expectation**: Looks for `index.html` in the root
+- **Solution**: `app_file: README.html` tells HuggingFace to treat `README.html` as the main page
+
+**Configuration example:**
+```yaml
+# In the Space's README.md
+---
+sdk: static
+app_file: README.html
+---
+```
+
+**What happens:**
+1. User visits the Space URL
+2. HuggingFace serves `/README.html` (but URL stays the same)
+3. Data Lifeboat loads exactly as designed
+4. All relative paths work: `viewer/list_photos.html`, `metadata/photoIndex.js`, etc.
+
+This approach is **superior to alternatives** like:
+- Adding a redirect `index.html` (modifies the archive)
+- Symlinking files (may not work on all hosting)
+- Restructuring directories (breaks the Data Lifeboat format)
+
+**Why this matters for digital preservation:**
+- Archives should remain unmodified
+- Original file structure must be preserved
+- Self-contained functionality is paramount
+- Future accessibility depends on format integrity
+
+#### **Docker Spaces (Alternative)**
+For cases requiring more control or private spaces:
+
+```bash
+# Create a Docker Space with HTTP server
+uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-docker-space username/space-name --private
+```
+
+**Features of both approaches:**
+- **Interactive viewers** - Full Data Lifeboat functionality preserved
+- **Self-contained** - No external dependencies
+- **Cross-platform** - Works on any modern browser
+- **Free hosting** - Leverages HuggingFace infrastructure
+- **Version control** - Git-based repository management
 
 ### Next Steps
 
