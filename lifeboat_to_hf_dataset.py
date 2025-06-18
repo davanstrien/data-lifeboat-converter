@@ -28,6 +28,122 @@ from PIL import Image as PILImage
 from lifeboat_to_hf import LifeboatLoader, LifeboatToPolars, Photo
 
 
+class LifeboatToStaticSpace:
+    """Create Static Space from Data Lifeboat for web hosting"""
+
+    def __init__(self, lifeboat_path: Path):
+        self.lifeboat_path = Path(lifeboat_path)
+        self.loader = LifeboatLoader(lifeboat_path)
+
+    def create_static_space(self, repo_id: str, private: bool = False, dataset_repo_id: Optional[str] = None) -> str:
+        """Create and upload Static Space for Data Lifeboat viewer"""
+        import tempfile
+        import shutil
+
+        api = HfApi()
+        lifeboat_meta = self.loader.load_lifeboat_metadata()
+
+        print(f"Creating Static Space for Data Lifeboat: {lifeboat_meta.name}")
+        print(f"Target repository: {repo_id}")
+
+        # Create repository
+        try:
+            create_repo(
+                repo_id=repo_id,
+                repo_type="space",
+                space_sdk="static",
+                private=private,
+                exist_ok=True
+            )
+            print(f"✅ Created/verified Space repository: {repo_id}")
+        except Exception as e:
+            print(f"❌ Error creating repository: {e}")
+            raise
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            
+            print("📁 Copying Data Lifeboat files...")
+            # Copy entire Data Lifeboat structure exactly as-is
+            for item in self.lifeboat_path.iterdir():
+                if item.is_file():
+                    shutil.copy2(item, temp_path / item.name)
+                elif item.is_dir() and not item.name.startswith('.'):
+                    shutil.copytree(item, temp_path / item.name, 
+                                  ignore=shutil.ignore_patterns('.DS_Store', '__pycache__'))
+
+            # Create README.md with app_file pointing to Data Lifeboat's README.html
+            print("📝 Creating Space README...")
+            dataset_link = ""
+            if dataset_repo_id:
+                dataset_link = f"\n\n## 🤖 Related Dataset\n\nThis Data Lifeboat is also available as a processed **HuggingFace Dataset**:\n\n**[📊 {dataset_repo_id}](https://huggingface.co/datasets/{dataset_repo_id})** - ML-ready format with structured metadata"
+
+            readme_content = f"""---
+title: "{lifeboat_meta.name} - Data Lifeboat"
+emoji: 🚢
+colorFrom: blue
+colorTo: purple
+sdk: static
+app_file: README.html
+pinned: false
+---
+
+# {lifeboat_meta.name} - Data Lifeboat
+
+This is an interactive **Data Lifeboat** - a self-contained digital preservation format from the [Flickr Foundation](https://www.flickr.org/).
+
+## About This Collection
+
+**Purpose:** {lifeboat_meta.purpose}
+
+## How to Navigate
+
+The collection documentation will load automatically. From there you can:
+- 📖 Read about the collection
+- 📷 Browse photos in the viewer
+- 🏷️ Explore by tags  
+- 📊 View collection statistics
+
+## About Data Lifeboats
+
+Data Lifeboats are **self-contained archives** that preserve not just images, but the complete social and cultural context. They include:
+
+- ✅ Original high-quality photos
+- ✅ Complete metadata (titles, descriptions, tags, dates, locations)  
+- ✅ Interactive web viewer (no external dependencies)
+- ✅ Structured data for research and analysis{dataset_link}
+
+---
+
+🚢 **Zero modifications** - This Data Lifeboat is served exactly as created, preserving its archival integrity.
+
+*Hosted via [Static Space deployment](https://huggingface.co/docs/hub/spaces-sdks-static)*
+"""
+            (temp_path / "README.md").write_text(readme_content)
+
+            # Upload everything
+            print("🚀 Uploading to HuggingFace Spaces...")
+            ignore_patterns = [
+                ".DS_Store", "**/.DS_Store",
+                "**/.git/**", "**/cache/**", 
+                "**/__pycache__/**", "**/*.pyc"
+            ]
+
+            api.upload_folder(
+                repo_id=repo_id,
+                folder_path=str(temp_path),
+                repo_type="space",
+                ignore_patterns=ignore_patterns,
+                commit_message="Upload Data Lifeboat as Static Space"
+            )
+
+        print(f"✅ Static Space created successfully!")
+        print(f"🌐 Access your Data Lifeboat at: https://huggingface.co/spaces/{repo_id}")
+        print(f"📖 The collection documentation loads automatically via app_file directive")
+
+        return repo_id
+
+
 class LifeboatToDockerSpace:
     """Create Docker Space from Data Lifeboat for web hosting"""
 
@@ -1147,8 +1263,12 @@ if __name__ == "__main__":
         help="Create a Docker Space for interactive viewing (e.g., 'username/space-name')",
     )
     parser.add_argument(
+        "--create-static-space",
+        help="Create a Static Space for interactive viewing (e.g., 'username/space-name') - Zero modifications approach",
+    )
+    parser.add_argument(
         "--dataset-repo-id",
-        help="Link to related processed dataset repository (for Docker Space README)",
+        help="Link to related processed dataset repository (for Space README)",
     )
 
     # New upload format options
@@ -1175,11 +1295,22 @@ if __name__ == "__main__":
     # Convert Data Lifeboat
     converter = LifeboatToHuggingFace(args.lifeboat_path)
 
-    # Handle Docker Space creation
+    # Handle Space creation
     if args.create_docker_space:
         space_creator = LifeboatToDockerSpace(args.lifeboat_path)
         space_creator.create_docker_space(
             repo_id=args.create_docker_space,
+            private=args.private,
+            dataset_repo_id=args.dataset_repo_id
+        )
+        # Exit after creating space if no other operations requested
+        if not (args.push_to_hub or args.save_local or args.create_static_space):
+            exit(0)
+
+    if args.create_static_space:
+        space_creator = LifeboatToStaticSpace(args.lifeboat_path)
+        space_creator.create_static_space(
+            repo_id=args.create_static_space,
             private=args.private,
             dataset_repo_id=args.dataset_repo_id
         )
