@@ -95,6 +95,12 @@ uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --save-local ./output
 
 # Add --private flag for private repositories
 uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --push-to-hub username/dataset-name --raw-only --private
+
+# NEW: Upload dataset + create space in one command (✅ working)
+uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --push-to-hub username/dataset-name --create-space username/space-name
+
+# NEW: Create space with custom raw dataset source (✅ working)
+uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-space username/space-name --raw-dataset-repo-id username/existing-raw
 ```
 
 ### Technical Architecture
@@ -125,6 +131,26 @@ Processed Dataset Repository:
 ├── data/                        # HuggingFace dataset shards
 └── dataset_info.json           # Dataset configuration
 ```
+
+### Recent Major Changes (June 2025)
+
+#### Streamlined to Dynamic Spaces Only
+- **Removed**: LifeboatToStaticSpace and LifeboatToDockerSpace classes (~400 lines)
+- **Simplified CLI**: Single `--create-space` command replaces `--create-static-space`, `--create-docker-space`, and `--create-dynamic-space`
+- **Intelligent Defaults**: Auto-detects raw dataset repository from `--push-to-hub` when creating spaces
+- **Better UX**: One-command workflow for dataset upload + space creation
+
+#### Why This Change
+- Dynamic Spaces handle any size Data Lifeboat (no 50GB Space limit)
+- Simpler codebase and clearer user experience  
+- Maintains all functionality with less complexity
+- Single proven approach vs. three experimental ones
+
+#### Development History
+1. **Initial Implementation**: Three space creation approaches (Static with app_file, Docker with full copy, Dynamic with runtime download)
+2. **Testing Phase**: Discovered Dynamic Spaces as most scalable and reliable
+3. **User Feedback**: Multiple options created confusion about which to use
+4. **Final Decision**: Streamline to Dynamic Spaces only with intelligent defaults
 
 ### HuggingFace Space Hosting
 
@@ -187,7 +213,7 @@ uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-space username/space-n
 - **Validation checks** to ensure Data Lifeboat completeness before upload
 - **Custom dataset splits** (train/validation/test) for ML applications
 - **Geographic filtering** for location-based subsets
-- **Combined workflow** - Create Space + Dataset in one command
+- ✅ **Combined workflow** - Create Space + Dataset in one command (COMPLETED)
 
 ### Data Quality and Validation
 
@@ -213,3 +239,24 @@ uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-space username/space-n
 - **Raw uploads**: `upload_large_folder()` with resumable capability
 - **Processed uploads**: Automatic sharding for optimal performance
 - **File filtering**: Excludes `.DS_Store`, cache files, and development artifacts
+
+### Repository Information
+
+#### **GitHub Repository**
+- **URL**: https://github.com/davanstrien/data-lifeboat-converter
+- **Visibility**: Private (as of June 2025)
+- **Default Branch**: `main`
+- **License**: MIT
+
+#### **Key Files**
+- `lifeboat_to_hf_dataset.py` - Main CLI script with streamlined interface
+- `lifeboat_to_hf.py` - Core library functions for Data Lifeboat parsing
+- `templates/Dockerfile.dynamic.template` - Docker configuration for Dynamic Spaces
+- `templates/download_and_serve.py.template` - Runtime download script for Spaces
+- `README.md` - User-facing documentation
+- `CLAUDE.md` - This file, for AI-assisted development context
+
+#### **Testing**
+- Test with sample Data Lifeboats: `Commons_1K_2025`, `Commons-Smiles`, `ENOLA_GAY`
+- Use `--save-local` for local testing before uploading
+- Test space creation with existing raw datasets first
