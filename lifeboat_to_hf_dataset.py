@@ -917,7 +917,7 @@ def parse_js_metadata(js_file_path):
     \"\"\"Parse JavaScript metadata files\"\"\"
     content = Path(js_file_path).read_text()
     # Extract JSON from: var variableName = {...};
-    json_match = re.search(r'var\\s+\\w+\\s*=\\s*(\\{.*\\});?', content, re.DOTALL)
+    json_match = re.search(r'var\s+\w+\s*=\s*(\{.*\});?', content, re.DOTALL)
     if json_match:
         return json.loads(json_match.group(1))
     return None
