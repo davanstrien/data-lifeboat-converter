@@ -134,8 +134,14 @@ The converter creates **Dynamic Docker Spaces** that download Data Lifeboats at 
 **Scalable hosting** that downloads Data Lifeboats from raw dataset repositories:
 
 ```bash
-# Create a Dynamic Space that downloads Data Lifeboat at runtime
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-space username/space-name --raw-dataset-repo-id username/dataset-raw
+# Upload dataset + create space (auto-detects raw repo)
+uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --push-to-hub username/dataset-name --create-space username/space-name
+
+# Override raw dataset source if needed
+uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --push-to-hub username/dataset-name --create-space username/space-name --raw-dataset-repo-id username/different-raw
+
+# Create space from existing raw dataset
+uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-space username/space-name --raw-dataset-repo-id username/existing-raw
 ```
 
 **How it works:**
@@ -146,9 +152,12 @@ uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-space username/space-n
 - Links to source raw dataset repository in Space metadata
 
 **Key benefits:**
+- **One command workflow** - Upload dataset + create space in single command
+- **Intelligent defaults** - Auto-detects raw dataset repository from upload
 - **No size limits** - Can host Data Lifeboats of any size
 - **Automatic provisioning** - Downloads content dynamically when Space starts
 - **Archival integrity** - Serves Data Lifeboat exactly as created
+- **Flexible overrides** - Can specify custom raw dataset sources
 - **Cross-referencing** - Links between Space and dataset repositories
 - **Free hosting** - Leverages HuggingFace's infrastructure
 

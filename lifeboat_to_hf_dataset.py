@@ -1220,7 +1220,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--raw-dataset-repo-id",
-        help="Raw dataset repository ID (required with --create-space)",
+        help="Raw dataset repository ID (auto-detected from --push-to-hub if not specified)",
     )
 
     # New upload format options
@@ -1249,19 +1249,31 @@ if __name__ == "__main__":
 
     # Handle Space creation
     if args.create_space:
-        if not args.raw_dataset_repo_id:
+        # Smart default: if uploading to hub and no explicit raw repo ID, auto-detect it
+        raw_dataset_repo_id = args.raw_dataset_repo_id
+        if not raw_dataset_repo_id and args.push_to_hub:
+            raw_dataset_repo_id = f"{args.push_to_hub}-raw"
+            print(f"🤖 Auto-detected raw dataset repository: {raw_dataset_repo_id}")
+        
+        if not raw_dataset_repo_id:
             print(
-                "❌ Error: --raw-dataset-repo-id is required when using --create-space"
+                "❌ Error: --raw-dataset-repo-id is required when using --create-space without --push-to-hub"
             )
             print(
-                "Example: --create-space username/space-name --raw-dataset-repo-id username/dataset-raw"
+                "Examples:"
+            )
+            print(
+                "  # Auto-detect from upload: --create-space username/space-name --push-to-hub username/dataset-name"
+            )
+            print(
+                "  # Explicit raw repo: --create-space username/space-name --raw-dataset-repo-id username/dataset-raw"
             )
             exit(1)
 
         space_creator = LifeboatToDynamicSpace(args.lifeboat_path)
         space_creator.create_dynamic_space(
             repo_id=args.create_space,
-            raw_dataset_repo_id=args.raw_dataset_repo_id,
+            raw_dataset_repo_id=raw_dataset_repo_id,
             private=args.private,
         )
         # Exit after creating space if no other operations requested
