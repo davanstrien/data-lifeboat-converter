@@ -4,32 +4,48 @@ Convert [Data Lifeboats](https://www.flickr.org/commons/) from the Flickr Founda
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Installation Options
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/) - a fast Python package manager:
+#### Option 1: Install Tool Globally (Recommended)
 
 ```bash
-# macOS and Linux
+# Install uv (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Windows
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# Install the tool globally from GitHub
+uv tool install git+https://github.com/davanstrien/data-lifeboat-converter.git
 
-# With pip
-pip install uv
+# Now use it anywhere
+lifeboat-to-hf path/to/Data_Lifeboat --push-to-hub username/dataset-name
+```
+
+#### Option 2: Run Directly from GitHub
+
+```bash
+# Run without installing (downloads and runs each time)
+uvx --from git+https://github.com/davanstrien/data-lifeboat-converter.git lifeboat-to-hf path/to/Data_Lifeboat --push-to-hub username/dataset-name
+```
+
+#### Option 3: Clone and Run Locally
+
+```bash
+# Clone repository and run with uv
+git clone https://github.com/davanstrien/data-lifeboat-converter.git
+cd data-lifeboat-converter
+uv run lifeboat_to_hf_dataset.py path/to/Data_Lifeboat --push-to-hub username/dataset-name
 ```
 
 ### Basic Usage
 
 ```bash
 # Upload dataset to HuggingFace Hub (creates both raw and processed versions)
-uv run lifeboat_to_hf_dataset.py path/to/Data_Lifeboat --push-to-hub username/dataset-name
+lifeboat-to-hf path/to/Data_Lifeboat --push-to-hub username/dataset-name
 
 # Upload dataset + create interactive Space in one command
-uv run lifeboat_to_hf_dataset.py path/to/Data_Lifeboat --push-to-hub username/dataset-name --create-space username/space-name
+lifeboat-to-hf path/to/Data_Lifeboat --push-to-hub username/dataset-name --create-space username/space-name
 
 # Save dataset locally for testing
-uv run lifeboat_to_hf_dataset.py path/to/Data_Lifeboat --save-local ./output
+lifeboat-to-hf path/to/Data_Lifeboat --save-local ./output
 ```
 
 ## 📦 What This Tool Creates
@@ -58,39 +74,39 @@ uv run lifeboat_to_hf_dataset.py path/to/Data_Lifeboat --save-local ./output
 
 ```bash
 # Upload both raw and processed versions (default)
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --push-to-hub myusername/flickr-commons-1k
+lifeboat-to-hf Commons_1K_2025 --push-to-hub myusername/flickr-commons-1k
 
 # Upload only raw Data Lifeboat
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --push-to-hub myusername/flickr-commons-1k --raw-only
+lifeboat-to-hf Commons_1K_2025 --push-to-hub myusername/flickr-commons-1k --raw-only
 
 # Upload only processed dataset
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --push-to-hub myusername/flickr-commons-1k --processed-only
+lifeboat-to-hf Commons_1K_2025 --push-to-hub myusername/flickr-commons-1k --processed-only
 
 # Make repositories private
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --push-to-hub myusername/flickr-commons-1k --private
+lifeboat-to-hf Commons_1K_2025 --push-to-hub myusername/flickr-commons-1k --private
 ```
 
 ### Create Interactive Spaces
 
 ```bash
 # Create Space (auto-detects raw dataset from upload)
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --push-to-hub myusername/dataset --create-space myusername/viewer
+lifeboat-to-hf Commons_1K_2025 --push-to-hub myusername/dataset --create-space myusername/viewer
 
 # Create Space with custom raw dataset source
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-space myusername/viewer --raw-dataset-repo-id myusername/existing-raw
+lifeboat-to-hf Commons_1K_2025 --create-space myusername/viewer --raw-dataset-repo-id myusername/existing-raw
 
 # Create private Space
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --push-to-hub myusername/dataset --create-space myusername/viewer --private
+lifeboat-to-hf Commons_1K_2025 --push-to-hub myusername/dataset --create-space myusername/viewer --private
 ```
 
 ### Local Development
 
 ```bash
 # Save locally for testing
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --save-local ./my-dataset
+lifeboat-to-hf Commons_1K_2025 --save-local ./my-dataset
 
 # Process different format options locally
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --save-local ./output --processed-only
+lifeboat-to-hf Commons_1K_2025 --save-local ./output --processed-only
 ```
 
 ## 🔧 Command Options
@@ -158,7 +174,7 @@ For private repositories or uploading, authenticate with HuggingFace:
 
 ```bash
 # Login to HuggingFace Hub
-uv run huggingface-cli login
+huggingface-cli login
 
 # Or set token as environment variable
 export HUGGINGFACE_HUB_TOKEN="your_token_here"
