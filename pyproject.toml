@@ -1,0 +1,41 @@
+[project]
+name = "data-lifeboat-converter"
+version = "0.1.0"
+description = "Convert Data Lifeboats from Flickr Foundation to HuggingFace datasets and Spaces"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "davanstrien", email = ""},
+]
+dependencies = [
+    "pydantic>=2.0.0",
+    "polars>=0.20.0",
+    "datasets>=2.15.0",
+    "huggingface_hub>=0.19.0",
+    "pillow>=10.0.0",
+    "typing-extensions>=4.0.0",
+    "hf-transfer",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+lifeboat-to-hf = "lifeboat_to_hf_dataset:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.black]
+line-length = 88
+target-version = ["py39"]
