@@ -16,7 +16,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Union, Any
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import polars as pl
 from pydantic import BaseModel, Field, field_validator

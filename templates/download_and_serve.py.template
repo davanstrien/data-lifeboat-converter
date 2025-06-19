@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""
+Download and serve Data Lifeboat from HuggingFace Hub
+
+This script downloads a raw Data Lifeboat from a HuggingFace dataset
+repository and serves it using Python's HTTP server.
+"""
+
+import os
+import sys
+import shutil
+import http.server
+import socketserver
+from pathlib import Path
+from huggingface_hub import snapshot_download
+
+def main():
+    # Get the raw dataset repository from environment
+    raw_repo = os.environ.get("RAW_DATASET_REPO")
+    if not raw_repo:
+        print("❌ Error: RAW_DATASET_REPO environment variable not set")
+        sys.exit(1)
+    
+    print(f"🚢 Starting Dynamic Data Lifeboat Space")
+    print(f"📦 Raw dataset repository: {raw_repo}")
+    
+    # Download directory
+    download_dir = Path("/home/user/app/data")
+    
+    try:
+        print(f"⬇️ Downloading raw Data Lifeboat from HuggingFace Hub...")
+        
+        # Download the entire repository
+        repo_path = snapshot_download(
+            repo_id=raw_repo,
+            repo_type="dataset",
+            local_dir=str(download_dir),
+        )
+        
+        print(f"✅ Download completed to: {repo_path}")
+        
+        # Find the Data Lifeboat directory inside data/
+        # Raw datasets have structure: data/LIFEBOAT_NAME/
+        data_subdir = download_dir / "data"
+        if data_subdir.exists():
+            lifeboat_dirs = [d for d in data_subdir.iterdir() if d.is_dir()]
+            if lifeboat_dirs:
+                lifeboat_path = lifeboat_dirs[0]  # Take the first (should be only one)
+                print(f"📁 Found Data Lifeboat at: {lifeboat_path}")
+                
+                # Verify it has the expected structure
+                readme_path = lifeboat_path / "README.html"
+                viewer_path = lifeboat_path / "viewer"
+                
+                if readme_path.exists() and viewer_path.exists():
+                    print(f"✅ Data Lifeboat structure verified")
+                    serve_directory = str(lifeboat_path)
+                else:
+                    print(f"⚠️ Warning: Data Lifeboat structure not fully recognized")
+                    serve_directory = str(lifeboat_path)
+            else:
+                print(f"❌ Error: No Data Lifeboat directory found in data/")
+                sys.exit(1)
+        else:
+            print(f"❌ Error: No data/ directory found in downloaded repository")
+            sys.exit(1)
+            
+    except Exception as e:
+        print(f"❌ Error downloading Data Lifeboat: {e}")
+        sys.exit(1)
+    
+    # Start HTTP server
+    print(f"🌐 Starting HTTP server on port 7860...")
+    print(f"📂 Serving directory: {serve_directory}")
+    
+    os.chdir(serve_directory)
+    
+    handler = http.server.SimpleHTTPRequestHandler
+    
+    # Custom handler to serve README.html as index
+    class DataLifeboatHandler(handler):
+        def end_headers(self):
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
+            super().end_headers()
+            
+        def do_GET(self):
+            # Redirect root to README.html
+            if self.path == '/' or self.path == '/index.html':
+                self.send_response(302)
+                self.send_header('Location', '/README.html')
+                self.end_headers()
+                return
+            super().do_GET()
+    
+    with socketserver.TCPServer(("", 7860), DataLifeboatHandler) as httpd:
+        print(f"✅ Data Lifeboat is now available at http://localhost:7860")
+        print(f"🔄 Serving Data Lifeboat from downloaded repository...")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print(f"\\n🛑 Server stopped")
+
+if __name__ == "__main__":
+    main()

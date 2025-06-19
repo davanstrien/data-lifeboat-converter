@@ -28,32 +28,35 @@ from PIL import Image as PILImage
 from lifeboat_to_hf import LifeboatLoader, LifeboatToPolars, Photo
 
 
-class LifeboatToStaticSpace:
-    """Create Static Space from Data Lifeboat for web hosting"""
+class LifeboatToDynamicSpace:
+    """Create Dynamic Docker Space that downloads Data Lifeboat at runtime"""
 
     def __init__(self, lifeboat_path: Path):
         self.lifeboat_path = Path(lifeboat_path)
         self.loader = LifeboatLoader(lifeboat_path)
 
-    def create_static_space(self, repo_id: str, private: bool = False, dataset_repo_id: Optional[str] = None) -> str:
-        """Create and upload Static Space for Data Lifeboat viewer"""
-        import tempfile
+    def create_dynamic_space(
+        self, repo_id: str, raw_dataset_repo_id: str, private: bool = False
+    ) -> str:
+        """Create and upload Dynamic Docker Space that downloads raw Data Lifeboat"""
         import shutil
+        import tempfile
 
         api = HfApi()
         lifeboat_meta = self.loader.load_lifeboat_metadata()
 
-        print(f"Creating Static Space for Data Lifeboat: {lifeboat_meta.name}")
+        print(f"Creating Dynamic Docker Space for Data Lifeboat: {lifeboat_meta.name}")
         print(f"Target repository: {repo_id}")
+        print(f"Raw dataset source: {raw_dataset_repo_id}")
 
         # Create repository
         try:
             create_repo(
                 repo_id=repo_id,
                 repo_type="space",
-                space_sdk="static",
+                space_sdk="docker",
                 private=private,
-                exist_ok=True
+                exist_ok=True,
             )
             print(f"✅ Created/verified Space repository: {repo_id}")
         except Exception as e:
@@ -62,106 +65,56 @@ class LifeboatToStaticSpace:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            
-            print("📁 Copying Data Lifeboat files...")
-            # Copy entire Data Lifeboat structure exactly as-is
-            for item in self.lifeboat_path.iterdir():
-                if item.is_file():
-                    shutil.copy2(item, temp_path / item.name)
-                elif item.is_dir() and not item.name.startswith('.'):
-                    shutil.copytree(item, temp_path / item.name, 
-                                  ignore=shutil.ignore_patterns('.DS_Store', '__pycache__'))
 
-            # Create README.md with app_file pointing to Data Lifeboat's README.html
+            # Create Dockerfile
+            print("🐳 Creating dynamic Dockerfile...")
+            dockerfile_content = self.create_dynamic_dockerfile(raw_dataset_repo_id)
+            (temp_path / "Dockerfile").write_text(dockerfile_content)
+
+            # Create download script
+            print("📝 Creating download script...")
+            script_content = self.create_download_script()
+            (temp_path / "download_and_serve.py").write_text(script_content)
+
+            # Create README.md
             print("📝 Creating Space README...")
-            dataset_link = ""
-            if dataset_repo_id:
-                dataset_link = f"\n\n## 🤖 Related Dataset\n\nThis Data Lifeboat is also available as a processed **HuggingFace Dataset**:\n\n**[📊 {dataset_repo_id}](https://huggingface.co/datasets/{dataset_repo_id})** - ML-ready format with structured metadata"
-
-            readme_content = f"""---
-title: "{lifeboat_meta.name} - Data Lifeboat"
-emoji: 🚢
-colorFrom: blue
-colorTo: purple
-sdk: static
-app_file: README.html
-pinned: false
----
-
-# {lifeboat_meta.name} - Data Lifeboat
-
-This is an interactive **Data Lifeboat** - a self-contained digital preservation format from the [Flickr Foundation](https://www.flickr.org/).
-
-## About This Collection
-
-**Purpose:** {lifeboat_meta.purpose}
-
-## How to Navigate
-
-The collection documentation will load automatically. From there you can:
-- 📖 Read about the collection
-- 📷 Browse photos in the viewer
-- 🏷️ Explore by tags  
-- 📊 View collection statistics
-
-## About Data Lifeboats
-
-Data Lifeboats are **self-contained archives** that preserve not just images, but the complete social and cultural context. They include:
-
-- ✅ Original high-quality photos
-- ✅ Complete metadata (titles, descriptions, tags, dates, locations)  
-- ✅ Interactive web viewer (no external dependencies)
-- ✅ Structured data for research and analysis{dataset_link}
-
----
-
-🚢 **Zero modifications** - This Data Lifeboat is served exactly as created, preserving its archival integrity.
-
-*Hosted via [Static Space deployment](https://huggingface.co/docs/hub/spaces-sdks-static)*
-"""
+            readme_content = self.create_space_readme(
+                repo_id, raw_dataset_repo_id, lifeboat_meta
+            )
             (temp_path / "README.md").write_text(readme_content)
 
             # Upload everything
             print("🚀 Uploading to HuggingFace Spaces...")
-            ignore_patterns = [
-                ".DS_Store", "**/.DS_Store",
-                "**/.git/**", "**/cache/**", 
-                "**/__pycache__/**", "**/*.pyc"
-            ]
-
             api.upload_folder(
                 repo_id=repo_id,
                 folder_path=str(temp_path),
                 repo_type="space",
-                ignore_patterns=ignore_patterns,
-                commit_message="Upload Data Lifeboat as Static Space"
+                commit_message="Create Dynamic Data Lifeboat Space",
             )
 
-        print(f"✅ Static Space created successfully!")
-        print(f"🌐 Access your Data Lifeboat at: https://huggingface.co/spaces/{repo_id}")
-        print(f"📖 The collection documentation loads automatically via app_file directive")
+        print("✅ Dynamic Space created successfully!")
+        print(
+            f"🌐 Access your Data Lifeboat at: https://huggingface.co/spaces/{repo_id}"
+        )
+        print("⚡ Data Lifeboat will be downloaded automatically when the Space starts")
 
         return repo_id
 
-
-class LifeboatToDockerSpace:
-    """Create Docker Space from Data Lifeboat for web hosting"""
-
-    def __init__(self, lifeboat_path: Path):
-        self.lifeboat_path = Path(lifeboat_path)
-        self.loader = LifeboatLoader(lifeboat_path)
-
-    def create_dockerfile(self) -> str:
-        """Generate Dockerfile for serving Data Lifeboat"""
-        dockerfile_template = Path("templates/Dockerfile.template")
+    def create_dynamic_dockerfile(self, raw_dataset_repo_id: str) -> str:
+        """Generate Dockerfile for dynamic Data Lifeboat hosting"""
+        dockerfile_template = Path("templates/Dockerfile.dynamic.template")
         if dockerfile_template.exists():
-            return dockerfile_template.read_text()
+            template = dockerfile_template.read_text()
+            return template.format(raw_dataset_repo_id=raw_dataset_repo_id)
         else:
             # Fallback inline template
-            return """FROM python:3.9-slim
+            return f"""FROM python:3.9-slim
 
 # Create user with ID 1000 (required by Hugging Face Spaces)
 RUN useradd -m -u 1000 user
+
+# Install required packages
+RUN pip install huggingface_hub
 
 # Switch to the user
 USER user
@@ -173,150 +126,154 @@ ENV HOME=/home/user \\
 # Set working directory
 WORKDIR $HOME/app
 
-# Copy Data Lifeboat files (preserve exact structure)
-COPY --chown=user:user . .
+# Copy startup script
+COPY --chown=user:user download_and_serve.py .
+
+# Create data directory for downloads
+RUN mkdir -p /home/user/app/data
 
 # Expose port 7860 (default for HF Spaces)
 EXPOSE 7860
 
-# Start Python HTTP server to serve static files
-# This serves the Data Lifeboat exactly as-is with no modifications
-CMD ["python", "-m", "http.server", "7860", "--bind", "0.0.0.0"]"""
+# Environment variable for the raw dataset repository
+ENV RAW_DATASET_REPO="{raw_dataset_repo_id}"
 
-    def create_space_readme(self, repo_id: str, dataset_repo_id: Optional[str] = None) -> str:
-        """Generate README.md for HuggingFace Space"""
-        lifeboat_meta = self.loader.load_lifeboat_metadata()
-        
-        # Load template
-        readme_template = Path("templates/space_readme.template")
-        if readme_template.exists():
-            template = readme_template.read_text()
+# Start the download and serve script
+CMD ["python", "download_and_serve.py"]"""
+
+    def create_download_script(self) -> str:
+        """Generate download and serve script"""
+        script_template = Path("templates/download_and_serve.py.template")
+        if script_template.exists():
+            return script_template.read_text()
         else:
-            # Fallback inline template (abbreviated)
-            template = """---
-title: "{lifeboat_name} - Data Lifeboat Viewer"
+            # Fallback inline script (abbreviated for brevity)
+            return '''#!/usr/bin/env python3
+"""Download and serve Data Lifeboat from HuggingFace Hub"""
+
+import os
+import sys
+import http.server
+import socketserver
+from pathlib import Path
+from huggingface_hub import snapshot_download
+
+def main():
+    raw_repo = os.environ.get("RAW_DATASET_REPO")
+    if not raw_repo:
+        print("❌ Error: RAW_DATASET_REPO environment variable not set")
+        sys.exit(1)
+    
+    print(f"🚢 Starting Dynamic Data Lifeboat Space")
+    print(f"📦 Raw dataset repository: {raw_repo}")
+    
+    download_dir = Path("/home/user/app/data")
+    
+    try:
+        print(f"⬇️ Downloading raw Data Lifeboat...")
+        repo_path = snapshot_download(
+            repo_id=raw_repo,
+            repo_type="dataset",
+            local_dir=str(download_dir),
+            local_dir_use_symlinks=False
+        )
+        
+        # Find the Data Lifeboat directory
+        data_subdir = download_dir / "data"
+        if data_subdir.exists():
+            lifeboat_dirs = [d for d in data_subdir.iterdir() if d.is_dir()]
+            if lifeboat_dirs:
+                serve_directory = str(lifeboat_dirs[0])
+                print(f"✅ Found Data Lifeboat at: {serve_directory}")
+            else:
+                print(f"❌ Error: No Data Lifeboat directory found")
+                sys.exit(1)
+        else:
+            print(f"❌ Error: No data/ directory found")
+            sys.exit(1)
+            
+    except Exception as e:
+        print(f"❌ Error downloading: {e}")
+        sys.exit(1)
+    
+    # Start HTTP server
+    print(f"🌐 Starting HTTP server on port 7860...")
+    os.chdir(serve_directory)
+    
+    class DataLifeboatHandler(http.server.SimpleHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == '/' or self.path == '/index.html':
+                self.send_response(302)
+                self.send_header('Location', '/README.html')
+                self.end_headers()
+                return
+            super().do_GET()
+    
+    with socketserver.TCPServer(("", 7860), DataLifeboatHandler) as httpd:
+        print(f"✅ Data Lifeboat is now available")
+        httpd.serve_forever()
+
+if __name__ == "__main__":
+    main()'''
+
+    def create_space_readme(
+        self, repo_id: str, raw_dataset_repo_id: str, lifeboat_meta
+    ) -> str:
+        """Generate README.md for Dynamic Space"""
+        return f"""---
+title: "{lifeboat_meta.name} - Dynamic Data Lifeboat"
 emoji: 🚢
 colorFrom: blue
 colorTo: purple
 sdk: docker
-app_port: 7860
+datasets:
+- {raw_dataset_repo_id}
+tags:
+- flickr-commons
+- data-lifeboat
+pinned: false
 ---
 
-# {lifeboat_name} - Data Lifeboat Viewer
+# {lifeboat_meta.name} - Dynamic Data Lifeboat
 
-Interactive **Data Lifeboat** viewer from the [Flickr Foundation](https://www.flickr.org/).
+This is a **Dynamic Data Lifeboat Space** that downloads and serves a Data Lifeboat collection at runtime.
 
-## 🖼️ View the Collection
+## About This Collection
 
-**Main Entry Points:**
-- **[📷 Browse Photos](viewer/list_photos.html)** - View all photos with filtering and sorting
-- **[🏷️ Browse Tags](viewer/list_tags.html)** - Explore by tags and keywords  
-- **[📊 Collection Data](viewer/data.html)** - Statistics and metadata overview
+**Purpose:** {lifeboat_meta.purpose}
 
-## 🤖 Machine Learning Dataset
+## How It Works
 
-{dataset_link}
+This Space dynamically downloads the raw Data Lifeboat from:
+**[📦 {raw_dataset_repo_id}](https://huggingface.co/datasets/{raw_dataset_repo_id})**
 
-## 📖 About Data Lifeboats
+When the Space starts, it:
+1. 📥 Downloads the complete Data Lifeboat archive
+2. 🚀 Extracts and serves it using Python HTTP server  
+3. 🌐 Provides the same interactive experience as the original
 
-**Purpose:** {lifeboat_purpose}
+## Advantages of Dynamic Hosting
 
-*Generated with [Claude Code](https://claude.ai/code)*"""
+- ✅ **No size limits** - Downloads happen at runtime within HuggingFace's infrastructure
+- ✅ **Always fresh** - Pulls the latest version of the Data Lifeboat
+- ✅ **Minimal upload** - Only configuration files need to be uploaded to the Space
+- ✅ **Preserves integrity** - Raw Data Lifeboat served exactly as archived
 
-        # Fill in template variables
-        dataset_link = ""
-        if dataset_repo_id:
-            dataset_link = f"This Data Lifeboat is also available as a processed **HuggingFace Dataset**:\n\n**[📊 {dataset_repo_id}](https://huggingface.co/datasets/{dataset_repo_id})** - ML-ready format"
-        else:
-            dataset_link = "This collection can be processed into a HuggingFace Dataset format for machine learning applications."
+## About Data Lifeboats
 
-        return template.format(
-            lifeboat_name=lifeboat_meta.name,
-            dataset_name=dataset_repo_id or "dataset-name",
-            lifeboat_purpose=lifeboat_meta.purpose,
-            lifeboat_considerations=lifeboat_meta.futureConsiderations,
-            dataset_link=dataset_link
-        )
+Data Lifeboats are **self-contained digital preservation archives** from the [Flickr Foundation](https://www.flickr.org/) that preserve complete cultural collections with:
 
-    def create_docker_space(self, repo_id: str, private: bool = True, dataset_repo_id: Optional[str] = None) -> str:
-        """Create and upload Docker Space for Data Lifeboat viewer"""
-        import tempfile
-        import shutil
+- 📷 Original high-quality photos and thumbnails
+- 📝 Complete metadata (titles, descriptions, tags, dates, locations)  
+- 🌐 Interactive web viewer with no external dependencies
+- 📊 Structured data ready for research and analysis
 
-        api = HfApi()
-        lifeboat_meta = self.loader.load_lifeboat_metadata()
+---
 
-        print(f"Creating Docker Space for Data Lifeboat: {lifeboat_meta.name}")
-        print(f"Target repository: {repo_id}")
+⚡ **Dynamic hosting** - This Data Lifeboat is downloaded fresh each time the Space starts.
 
-        # Create repository
-        try:
-            create_repo(
-                repo_id=repo_id,
-                repo_type="space",
-                space_sdk="docker",
-                private=private,
-                exist_ok=True
-            )
-            print(f"✅ Created/verified Space repository: {repo_id}")
-        except Exception as e:
-            print(f"❌ Error creating repository: {e}")
-            raise
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            
-            print("📁 Copying Data Lifeboat files...")
-            # Copy entire Data Lifeboat structure
-            for item in self.lifeboat_path.iterdir():
-                if item.is_file():
-                    shutil.copy2(item, temp_path / item.name)
-                elif item.is_dir() and not item.name.startswith('.'):
-                    shutil.copytree(item, temp_path / item.name, 
-                                  ignore=shutil.ignore_patterns('.DS_Store', '__pycache__'))
-
-            # Create Dockerfile
-            print("🐳 Creating Dockerfile...")
-            dockerfile_content = self.create_dockerfile()
-            (temp_path / "Dockerfile").write_text(dockerfile_content)
-
-            # Create README.md
-            print("📝 Creating Space README...")
-            readme_content = self.create_space_readme(repo_id, dataset_repo_id)
-            (temp_path / "README.md").write_text(readme_content)
-
-            # Create index.html for better navigation
-            print("🏠 Creating index.html...")
-            index_template = Path("templates/index.html.template")
-            if index_template.exists():
-                index_content = index_template.read_text()
-                index_content = index_content.format(
-                    lifeboat_name=lifeboat_meta.name,
-                    lifeboat_purpose=lifeboat_meta.purpose
-                )
-                (temp_path / "index.html").write_text(index_content)
-
-            # Upload everything
-            print("🚀 Uploading to HuggingFace Spaces...")
-            ignore_patterns = [
-                ".DS_Store", "**/.DS_Store",
-                "**/.git/**", "**/cache/**", 
-                "**/__pycache__/**", "**/*.pyc"
-            ]
-
-            api.upload_folder(
-                repo_id=repo_id,
-                folder_path=str(temp_path),
-                repo_type="space",
-                ignore_patterns=ignore_patterns,
-                commit_message="Upload Data Lifeboat Docker Space"
-            )
-
-        print(f"✅ Docker Space created successfully!")
-        print(f"🌐 Access your Data Lifeboat at: https://huggingface.co/spaces/{repo_id}")
-        print(f"📷 Direct photo browser: https://huggingface.co/spaces/{repo_id}/viewer/list_photos.html")
-
-        return repo_id
+*Technical implementation: Docker Space with runtime dataset download via `huggingface_hub`*
+"""
 
 
 class LifeboatToHuggingFace:
@@ -333,11 +290,11 @@ class LifeboatToHuggingFace:
         # Convert relative paths to absolute paths
         photos_df = photos_df.with_columns(
             [
-                (pl.lit(str(self.lifeboat_path)) + "/" + pl.col("original_path")).alias(
+                (f"{pl.lit(str(self.lifeboat_path))}/" + pl.col("original_path")).alias(
                     "original_path_abs"
                 ),
                 (
-                    pl.lit(str(self.lifeboat_path)) + "/" + pl.col("thumbnail_path")
+                    f"{pl.lit(str(self.lifeboat_path))}/" + pl.col("thumbnail_path")
                 ).alias("thumbnail_path_abs"),
             ]
         )
@@ -865,7 +822,7 @@ This dataset was created using the Flickr Foundation's Data Lifeboat format and 
         else:
             size_cat = "10K<n<100K"
 
-        card = f"""---
+        return f"""---
 license: other
 license_name: various-open-licenses
 license_link: https://www.flickr.com/commons/usage/
@@ -1064,7 +1021,6 @@ The viewer works in all modern browsers:
 
 **Preservation Notice**: This archive is designed to remain accessible indefinitely. The self-contained format ensures that future researchers can access and understand this collection even if external services or APIs change.
 """
-        return card
 
     def upload_raw_lifeboat(self, repo_id: str, private: bool = True) -> str:
         """Upload the raw Data Lifeboat using upload_large_folder"""
@@ -1073,7 +1029,7 @@ The viewer works in all modern browsers:
         import tempfile
 
         api = HfApi()
-        
+
         # Load metadata before any temporary operations
         lifeboat_meta = self.loader.load_lifeboat_metadata()
 
@@ -1259,16 +1215,12 @@ if __name__ == "__main__":
         help="Make the dataset private on HuggingFace Hub",
     )
     parser.add_argument(
-        "--create-docker-space",
-        help="Create a Docker Space for interactive viewing (e.g., 'username/space-name')",
+        "--create-space",
+        help="Create a Space for interactive Data Lifeboat viewing (e.g., 'username/space-name')",
     )
     parser.add_argument(
-        "--create-static-space",
-        help="Create a Static Space for interactive viewing (e.g., 'username/space-name') - Zero modifications approach",
-    )
-    parser.add_argument(
-        "--dataset-repo-id",
-        help="Link to related processed dataset repository (for Space README)",
+        "--raw-dataset-repo-id",
+        help="Raw dataset repository ID (required with --create-space)",
     )
 
     # New upload format options
@@ -1296,23 +1248,21 @@ if __name__ == "__main__":
     converter = LifeboatToHuggingFace(args.lifeboat_path)
 
     # Handle Space creation
-    if args.create_docker_space:
-        space_creator = LifeboatToDockerSpace(args.lifeboat_path)
-        space_creator.create_docker_space(
-            repo_id=args.create_docker_space,
-            private=args.private,
-            dataset_repo_id=args.dataset_repo_id
-        )
-        # Exit after creating space if no other operations requested
-        if not (args.push_to_hub or args.save_local or args.create_static_space):
-            exit(0)
+    if args.create_space:
+        if not args.raw_dataset_repo_id:
+            print(
+                "❌ Error: --raw-dataset-repo-id is required when using --create-space"
+            )
+            print(
+                "Example: --create-space username/space-name --raw-dataset-repo-id username/dataset-raw"
+            )
+            exit(1)
 
-    if args.create_static_space:
-        space_creator = LifeboatToStaticSpace(args.lifeboat_path)
-        space_creator.create_static_space(
-            repo_id=args.create_static_space,
+        space_creator = LifeboatToDynamicSpace(args.lifeboat_path)
+        space_creator.create_dynamic_space(
+            repo_id=args.create_space,
+            raw_dataset_repo_id=args.raw_dataset_repo_id,
             private=args.private,
-            dataset_repo_id=args.dataset_repo_id
         )
         # Exit after creating space if no other operations requested
         if not (args.push_to_hub or args.save_local):
@@ -1376,7 +1326,7 @@ if __name__ == "__main__":
         print("Creating HuggingFace Dataset...")
         dataset = converter.create_dataset()
 
-        print(f"\nDataset created successfully!")
+        print("\nDataset created successfully!")
         print(f"Number of examples: {len(dataset)}")
         print(f"Features: {list(dataset.features.keys())}")
         print("\nUse --push-to-hub or --save-local to save the dataset.")

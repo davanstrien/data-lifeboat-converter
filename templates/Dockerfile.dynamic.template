@@ -1,0 +1,32 @@
+FROM python:3.9-slim
+
+# Create user with ID 1000 (required by Hugging Face Spaces)
+RUN useradd -m -u 1000 user
+
+# Install required packages
+RUN pip install huggingface_hub
+
+# Switch to the user
+USER user
+
+# Set environment variables
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
+
+# Set working directory
+WORKDIR $HOME/app
+
+# Copy startup script
+COPY --chown=user:user download_and_serve.py .
+
+# Create data directory for downloads
+RUN mkdir -p /home/user/app/data
+
+# Expose port 7860 (default for HF Spaces)
+EXPOSE 7860
+
+# Environment variable for the raw dataset repository
+ENV RAW_DATASET_REPO="{raw_dataset_repo_id}"
+
+# Start the download and serve script
+CMD ["python", "download_and_serve.py"]

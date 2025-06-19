@@ -128,76 +128,42 @@ Processed Dataset Repository:
 
 ### HuggingFace Space Hosting
 
-The converter supports **two approaches** for hosting Data Lifeboats as interactive web applications on HuggingFace Spaces:
+The converter creates **Dynamic Docker Spaces** that download Data Lifeboats at runtime, enabling hosting of any size collection without size limitations:
 
-#### **✅ Static Spaces (Recommended)**
-**Zero-modification hosting** using HuggingFace's static space functionality:
+#### **✅ Dynamic Spaces (Runtime Download)**
+**Scalable hosting** that downloads Data Lifeboats from raw dataset repositories:
 
 ```bash
-# Create a Static Space for web viewing (recommended)
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-static-space username/space-name
-
-# Link to a related dataset
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-static-space username/space-name --dataset-repo-id username/dataset-name
+# Create a Dynamic Space that downloads Data Lifeboat at runtime
+uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-space username/space-name --raw-dataset-repo-id username/dataset-raw
 ```
 
 **How it works:**
-- Uses `app_file: README.html` directive in Space README.md
-- HuggingFace serves Data Lifeboat's `README.html` as the main page
-- **Zero modifications** to the original Data Lifeboat archive
-- All relative paths work correctly (viewer/, metadata/, media/)
-- Preserves exact archival integrity
+- Docker container downloads the raw Data Lifeboat from HuggingFace Hub at startup
+- Serves the complete archive using Python HTTP server
+- Handles any Data Lifeboat size (no 50GB limitation)
+- Automatic redirect from root to `README.html` entry point
+- Links to source raw dataset repository in Space metadata
 
-**Key insight:** The `app_file` directive tells HuggingFace to serve any file as the main entry point instead of the default `index.html`.
+**Key benefits:**
+- **No size limits** - Can host Data Lifeboats of any size
+- **Automatic provisioning** - Downloads content dynamically when Space starts
+- **Archival integrity** - Serves Data Lifeboat exactly as created
+- **Cross-referencing** - Links between Space and dataset repositories
+- **Free hosting** - Leverages HuggingFace's infrastructure
 
-#### **Understanding the `app_file` Approach**
+**Technical approach:**
+1. User visits Space URL
+2. Docker container starts and downloads raw Data Lifeboat
+3. HTTP server serves Data Lifeboat with redirect to README.html
+4. All relative paths work correctly: `viewer/`, `metadata/`, `media/`
 
-The `app_file` directive is a HuggingFace Static Space configuration that solves a fundamental mismatch:
-
-- **Data Lifeboat design**: Uses `README.html` as the entry point  
-- **HuggingFace expectation**: Looks for `index.html` in the root
-- **Solution**: `app_file: README.html` tells HuggingFace to treat `README.html` as the main page
-
-**Configuration example:**
-```yaml
-# In the Space's README.md
----
-sdk: static
-app_file: README.html
----
-```
-
-**What happens:**
-1. User visits the Space URL
-2. HuggingFace serves `/README.html` (but URL stays the same)
-3. Data Lifeboat loads exactly as designed
-4. All relative paths work: `viewer/list_photos.html`, `metadata/photoIndex.js`, etc.
-
-This approach is **superior to alternatives** like:
-- Adding a redirect `index.html` (modifies the archive)
-- Symlinking files (may not work on all hosting)
-- Restructuring directories (breaks the Data Lifeboat format)
-
-**Why this matters for digital preservation:**
-- Archives should remain unmodified
-- Original file structure must be preserved
-- Self-contained functionality is paramount
-- Future accessibility depends on format integrity
-
-#### **Docker Spaces (Alternative)**
-For cases requiring more control or private spaces:
-
-```bash
-# Create a Docker Space with HTTP server
-uv run lifeboat_to_hf_dataset.py Commons_1K_2025 --create-docker-space username/space-name --private
-```
-
-**Features of both approaches:**
+**Space features:**
 - **Interactive viewers** - Full Data Lifeboat functionality preserved
-- **Self-contained** - No external dependencies
+- **Self-contained** - No external dependencies once downloaded
 - **Cross-platform** - Works on any modern browser
-- **Free hosting** - Leverages HuggingFace infrastructure
 - **Version control** - Git-based repository management
+- **Metadata linking** - Space README references source dataset
 
 ### Next Steps
 

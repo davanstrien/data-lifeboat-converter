@@ -6,8 +6,9 @@
 #     "typing-extensions",
 # ]
 # ///
-from lifeboat_to_hf import LifeboatLoader
 from pathlib import Path
+
+from lifeboat_to_hf import LifeboatLoader
 
 # Test loading all three Data Lifeboats
 lifeboats = ['Commons_1K_2025', 'Commons-Smiles', 'ENOLA_GAY']
