@@ -1254,14 +1254,12 @@ def main():
         if not raw_dataset_repo_id and args.push_to_hub:
             raw_dataset_repo_id = f"{args.push_to_hub}-raw"
             print(f"🤖 Auto-detected raw dataset repository: {raw_dataset_repo_id}")
-        
+
         if not raw_dataset_repo_id:
             print(
                 "❌ Error: --raw-dataset-repo-id is required when using --create-space without --push-to-hub"
             )
-            print(
-                "Examples:"
-            )
+            print("Examples:")
             print(
                 "  # Auto-detect from upload: --create-space username/space-name --push-to-hub username/dataset-name"
             )
