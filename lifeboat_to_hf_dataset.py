@@ -916,8 +916,8 @@ from pathlib import Path
 def parse_js_metadata(js_file_path):
     \"\"\"Parse JavaScript metadata files\"\"\"
     content = Path(js_file_path).read_text()
-    # Extract JSON from: var variableName = {{...}};
-    json_match = re.search(r'var\s+\w+\s*=\s*(\{{.*\}});?', content, re.DOTALL)
+    # Extract JSON from: var variableName = {...};
+    json_match = re.search(r'var\s+\w+\s*=\s*({{.*}});?', content, re.DOTALL)
     if json_match:
         return json.loads(json_match.group(1))
     return None
@@ -1196,8 +1196,8 @@ Choose the raw version if you need the complete preservation format or want to u
         return processed_repo_id, raw_repo_id
 
 
-# Example usage
-if __name__ == "__main__":
+def main():
+    """Main CLI entry point"""
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -1342,3 +1342,7 @@ if __name__ == "__main__":
         print(f"Number of examples: {len(dataset)}")
         print(f"Features: {list(dataset.features.keys())}")
         print("\nUse --push-to-hub or --save-local to save the dataset.")
+
+
+if __name__ == "__main__":
+    main()
