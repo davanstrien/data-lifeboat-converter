@@ -1,0 +1,188 @@
+---
+license: other
+license_name: various-open-licenses
+license_link: https://www.flickr.com/commons/usage/
+tags:
+- flickr
+- flickr-commons
+- data-lifeboat
+size_categories:
+- {size_cat}
+language:
+- en
+task_categories:
+- image-classification
+- image-to-text
+- text-retrieval
+- visual-question-answering
+pretty_name: "{lifeboat_meta_name}"
+---
+
+# {lifeboat_meta_name}
+
+## Dataset Description
+
+This dataset is a **Flickr Data Lifeboat** converted to Hugging Face format. Data Lifeboats are digital preservation archives created by the [Flickr Foundation](https://www.flickr.org/programs/content-mobility/data-lifeboat/) to ensure long-term access to meaningful collections of Flickr photos and their rich community metadata.
+
+### What is a Data Lifeboat?
+
+Data Lifeboats are self-contained archives designed to preserve not just images, but the **social and cultural context** that makes them meaningful:
+- Complete photo metadata and community interactions
+- User-generated tags, descriptions, and comments  
+- Attribution and licensing information
+- No external dependencies for long-term preservation
+
+**Collection Details:**
+- **Original Collection ID**: `{lifeboat_meta_id}`
+- **Created**: {lifeboat_meta_dateCreated}
+- **Curator**: {lifeboat_meta_creator_name}
+
+### Purpose
+
+{lifeboat_meta_purpose}
+
+## Dataset Statistics
+
+### Collection Overview
+- **Total Photos**: {total_photos:,}
+- **Total Tags**: {total_tags:,}
+- **Total Comments**: {total_comments:,}
+- **Contributors**: {total_contributors:,}
+- **Date Range**: {earliest_upload} to {latest_upload}
+- **Photos with Location**: {photos_with_location} ({location_percentage:.1f}%)
+
+### License Distribution
+{license_list}
+
+### Format Distribution
+{format_list}
+
+### Engagement Metrics
+- **Average Views**: {avg_views:,.0f} (max: {max_views:,})
+- **Average Favorites**: {avg_faves:,.0f} (max: {max_faves:,})
+- **Average Comments**: {avg_comments:.1f} (max: {max_comments})
+
+### Top Contributing Institutions/Users
+{top_contrib_list}
+
+## Dataset Structure
+
+### Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `image` | Image | Original resolution photo |
+| `thumbnail` | Image | Thumbnail version |
+| `photo_id` | string | Unique Flickr identifier |
+| `secret` | string | Flickr URL construction parameter (enables direct access to public domain photos) |
+| `url` | string | Original Flickr URL |
+| `title` | string | Photo title |
+| `description` | string | Photo description |
+| `uploader_username` | string | Username of uploader |
+| `license_label` | string | Human-readable license |
+| `date_taken` | string | When photo was captured |
+| `date_uploaded` | timestamp | When uploaded to Flickr |
+| `latitude/longitude` | float | GPS coordinates (if available) |
+| `count_views/faves/comments` | int | Community engagement metrics |
+| `tags` | list[string] | User-generated tags |
+| `comments` | list[dict] | Full comment threads with metadata |
+
+**Note on `secret` field**: This is a Flickr-specific parameter required for constructing direct image URLs. While normally sensitive, it's appropriate to include here because all photos are public domain and this enables the self-contained nature of Data Lifeboat archives.
+
+## Usage
+
+### Basic Loading
+
+```python
+from datasets import load_dataset
+
+# Load the dataset
+dataset = load_dataset("your-username/dataset-name")
+
+# Access images and metadata
+for example in dataset["train"]:
+    image = example["image"]
+    title = example["title"]
+    tags = example["tags"]
+    comments = example["comments"]
+```
+
+### Research Applications
+
+This dataset is suitable for:
+- **Computer Vision**: Image classification, scene understanding, visual content analysis
+- **Vision-Language**: Image-to-text generation, visual question answering
+- **Digital Humanities**: Cultural heritage analysis, community interaction studies
+- **Information Retrieval**: Text-based image search, tag prediction, metadata analysis
+- **Social Media Research**: Community engagement patterns, collaborative annotation
+
+### Working with Comments and Tags
+
+```python
+# Analyze community engagement
+for example in dataset["train"]:
+    photo_id = example["photo_id"]
+    num_comments = len(example["comments"])
+    tags = example["tags"]
+    
+    print(f"Photo {{photo_id}}: {{num_comments}} comments, {{len(tags)}} tags")
+```
+
+## Source Data
+
+### Data Collection
+
+This collection originates from Flickr's Commons program, which partners with cultural heritage institutions to share photographs with no known copyright restrictions. Photos are selected based on cultural significance, community engagement, and preservation value.
+
+### Community Annotations
+
+All metadata reflects authentic community interaction:
+- **Tags**: User-generated keywords and descriptions
+- **Comments**: Community discussions and reactions
+- **Engagement metrics**: Real view counts, favorites, and interactions
+
+## Licensing and Ethics
+
+### License Information
+
+Photos in this collection have open licenses enabling reuse:
+- Most common: "No known copyright restrictions"
+- Also includes: Creative Commons licenses (CC0, CC BY, etc.)
+- See `license_label` and `license_url` fields for specific licensing per image
+
+### Ethical Considerations
+
+- **Historical Context**: Some photos may depict people, places, or events from historical periods
+- **Community Content**: Comments and tags reflect community perspectives at time of creation
+- **Attribution**: Original photographers and institutions are preserved in metadata
+- **Public Domain**: All content was publicly accessible on Flickr under open licenses
+
+## Citation
+
+```bibtex
+@misc{{{lifeboat_meta_id_lower}}},
+  title = {{{lifeboat_meta_name}}},
+  author = {{{lifeboat_meta_creator_name}}},
+  year = {{2025}},
+  publisher = {{Hugging Face}},
+  url = {{https://huggingface.co/datasets/[dataset-url]}},
+  note = {{Flickr Data Lifeboat digital preservation format}}
+}}
+```
+
+## Additional Information
+
+### Future Considerations
+
+{lifeboat_meta_futureConsiderations}
+
+### About Data Lifeboats
+
+Learn more about the Data Lifeboat initiative:
+- [Data Lifeboat Overview](https://www.flickr.org/programs/content-mobility/data-lifeboat/)
+- [Flickr Foundation](https://www.flickr.org/foundation/)
+- [Commons Program](https://www.flickr.com/commons)
+
+### Dataset Maintenance
+
+This dataset was created using the Flickr Foundation's Data Lifeboat format and converted to Hugging Face using automated tools that preserve all original metadata and community context.
