@@ -1,0 +1,53 @@
+---
+title: "{lifeboat_meta_name} - Dynamic Data Lifeboat"
+emoji: 🚢
+colorFrom: blue
+colorTo: purple
+sdk: docker
+datasets:
+- {raw_dataset_repo_id}
+tags:
+- flickr-commons
+- data-lifeboat
+pinned: false
+---
+
+# {lifeboat_meta_name} - Dynamic Data Lifeboat
+
+This is a **Dynamic Data Lifeboat Space** that downloads and serves a Data Lifeboat collection at runtime.
+
+## About This Collection
+
+**Purpose:** {lifeboat_meta_purpose}
+
+## How It Works
+
+This Space dynamically downloads the raw Data Lifeboat from:
+**[📦 {raw_dataset_repo_id}](https://huggingface.co/datasets/{raw_dataset_repo_id})**
+
+When the Space starts, it:
+1. 📥 Downloads the complete Data Lifeboat archive
+2. 🚀 Extracts and serves it using Python HTTP server  
+3. 🌐 Provides the same interactive experience as the original
+
+## Advantages of Dynamic Hosting
+
+- ✅ **No size limits** - Downloads happen at runtime within HuggingFace's infrastructure
+- ✅ **Always fresh** - Pulls the latest version of the Data Lifeboat
+- ✅ **Minimal upload** - Only configuration files need to be uploaded to the Space
+- ✅ **Preserves integrity** - Raw Data Lifeboat served exactly as archived
+
+## About Data Lifeboats
+
+Data Lifeboats are **self-contained digital preservation archives** from the [Flickr Foundation](https://www.flickr.org/) that preserve complete cultural collections with:
+
+- 📷 Original high-quality photos and thumbnails
+- 📝 Complete metadata (titles, descriptions, tags, dates, locations)  
+- 🌐 Interactive web viewer with no external dependencies
+- 📊 Structured data ready for research and analysis
+
+---
+
+⚡ **Dynamic hosting** - This Data Lifeboat is downloaded fresh each time the Space starts.
+
+*Technical implementation: Docker Space with runtime dataset download via `huggingface_hub`*

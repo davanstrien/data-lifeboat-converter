@@ -1,29 +1,14 @@
 #!/usr/bin/env python3
 """
 Convert Data Lifeboat to Hugging Face Dataset
-
-# /// script
-# dependencies = [
-#     "pydantic>=2.0.0",
-#     "polars>=0.20.0",
-#     "datasets>=2.15.0",
-#     "huggingface_hub>=0.19.0",
-#     "pillow>=10.0.0",
-#     "typing-extensions>=4.0.0",
-#     "hf-xet",
-#     "hf-transfer",
-# ]
-# ///
 """
 
-import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import polars as pl
-from datasets import ClassLabel, Dataset, DatasetDict, Features, Image, Sequence, Value
+from datasets import Dataset, Features, Image, Sequence, Value
 from huggingface_hub import HfApi, create_repo
-from PIL import Image as PILImage
 
 from lifeboat_to_hf import LifeboatLoader, LifeboatToPolars, Photo
 
@@ -39,7 +24,6 @@ class LifeboatToDynamicSpace:
         self, repo_id: str, raw_dataset_repo_id: str, private: bool = False
     ) -> str:
         """Create and upload Dynamic Docker Space that downloads raw Data Lifeboat"""
-        import shutil
         import tempfile
 
         api = HfApi()
@@ -103,43 +87,8 @@ class LifeboatToDynamicSpace:
     def create_dynamic_dockerfile(self, raw_dataset_repo_id: str) -> str:
         """Generate Dockerfile for dynamic Data Lifeboat hosting"""
         dockerfile_template = Path("templates/Dockerfile.dynamic.template")
-        if dockerfile_template.exists():
-            template = dockerfile_template.read_text()
-            return template.format(raw_dataset_repo_id=raw_dataset_repo_id)
-        else:
-            # Fallback inline template
-            return f"""FROM python:3.9-slim
-
-# Create user with ID 1000 (required by Hugging Face Spaces)
-RUN useradd -m -u 1000 user
-
-# Install required packages
-RUN pip install huggingface_hub
-
-# Switch to the user
-USER user
-
-# Set environment variables
-ENV HOME=/home/user \\
-    PATH=/home/user/.local/bin:$PATH
-
-# Set working directory
-WORKDIR $HOME/app
-
-# Copy startup script
-COPY --chown=user:user download_and_serve.py .
-
-# Create data directory for downloads
-RUN mkdir -p /home/user/app/data
-
-# Expose port 7860 (default for HF Spaces)
-EXPOSE 7860
-
-# Environment variable for the raw dataset repository
-ENV RAW_DATASET_REPO="{raw_dataset_repo_id}"
-
-# Start the download and serve script
-CMD ["python", "download_and_serve.py"]"""
+        template = dockerfile_template.read_text()
+        return template.format(raw_dataset_repo_id=raw_dataset_repo_id)
 
     def create_download_script(self) -> str:
         """Generate download and serve script"""
@@ -147,133 +96,23 @@ CMD ["python", "download_and_serve.py"]"""
         if script_template.exists():
             return script_template.read_text()
         else:
-            # Fallback inline script (abbreviated for brevity)
-            return '''#!/usr/bin/env python3
-"""Download and serve Data Lifeboat from HuggingFace Hub"""
-
-import os
-import sys
-import http.server
-import socketserver
-from pathlib import Path
-from huggingface_hub import snapshot_download
-
-def main():
-    raw_repo = os.environ.get("RAW_DATASET_REPO")
-    if not raw_repo:
-        print("❌ Error: RAW_DATASET_REPO environment variable not set")
-        sys.exit(1)
-    
-    print(f"🚢 Starting Dynamic Data Lifeboat Space")
-    print(f"📦 Raw dataset repository: {raw_repo}")
-    
-    download_dir = Path("/home/user/app/data")
-    
-    try:
-        print(f"⬇️ Downloading raw Data Lifeboat...")
-        repo_path = snapshot_download(
-            repo_id=raw_repo,
-            repo_type="dataset",
-            local_dir=str(download_dir),
-            local_dir_use_symlinks=False
-        )
-        
-        # Find the Data Lifeboat directory
-        data_subdir = download_dir / "data"
-        if data_subdir.exists():
-            lifeboat_dirs = [d for d in data_subdir.iterdir() if d.is_dir()]
-            if lifeboat_dirs:
-                serve_directory = str(lifeboat_dirs[0])
-                print(f"✅ Found Data Lifeboat at: {serve_directory}")
-            else:
-                print(f"❌ Error: No Data Lifeboat directory found")
-                sys.exit(1)
-        else:
-            print(f"❌ Error: No data/ directory found")
-            sys.exit(1)
-            
-    except Exception as e:
-        print(f"❌ Error downloading: {e}")
-        sys.exit(1)
-    
-    # Start HTTP server
-    print(f"🌐 Starting HTTP server on port 7860...")
-    os.chdir(serve_directory)
-    
-    class DataLifeboatHandler(http.server.SimpleHTTPRequestHandler):
-        def do_GET(self):
-            if self.path == '/' or self.path == '/index.html':
-                self.send_response(302)
-                self.send_header('Location', '/README.html')
-                self.end_headers()
-                return
-            super().do_GET()
-    
-    with socketserver.TCPServer(("", 7860), DataLifeboatHandler) as httpd:
-        print(f"✅ Data Lifeboat is now available")
-        httpd.serve_forever()
-
-if __name__ == "__main__":
-    main()'''
+            raise FileNotFoundError
 
     def create_space_readme(
         self, repo_id: str, raw_dataset_repo_id: str, lifeboat_meta
     ) -> str:
         """Generate README.md for Dynamic Space"""
-        return f"""---
-title: "{lifeboat_meta.name} - Dynamic Data Lifeboat"
-emoji: 🚢
-colorFrom: blue
-colorTo: purple
-sdk: docker
-datasets:
-- {raw_dataset_repo_id}
-tags:
-- flickr-commons
-- data-lifeboat
-pinned: false
----
+        # Load template
+        template_path = Path("templates/space_readme.md.template")
+        template = template_path.read_text()
 
-# {lifeboat_meta.name} - Dynamic Data Lifeboat
-
-This is a **Dynamic Data Lifeboat Space** that downloads and serves a Data Lifeboat collection at runtime.
-
-## About This Collection
-
-**Purpose:** {lifeboat_meta.purpose}
-
-## How It Works
-
-This Space dynamically downloads the raw Data Lifeboat from:
-**[📦 {raw_dataset_repo_id}](https://huggingface.co/datasets/{raw_dataset_repo_id})**
-
-When the Space starts, it:
-1. 📥 Downloads the complete Data Lifeboat archive
-2. 🚀 Extracts and serves it using Python HTTP server  
-3. 🌐 Provides the same interactive experience as the original
-
-## Advantages of Dynamic Hosting
-
-- ✅ **No size limits** - Downloads happen at runtime within HuggingFace's infrastructure
-- ✅ **Always fresh** - Pulls the latest version of the Data Lifeboat
-- ✅ **Minimal upload** - Only configuration files need to be uploaded to the Space
-- ✅ **Preserves integrity** - Raw Data Lifeboat served exactly as archived
-
-## About Data Lifeboats
-
-Data Lifeboats are **self-contained digital preservation archives** from the [Flickr Foundation](https://www.flickr.org/) that preserve complete cultural collections with:
-
-- 📷 Original high-quality photos and thumbnails
-- 📝 Complete metadata (titles, descriptions, tags, dates, locations)  
-- 🌐 Interactive web viewer with no external dependencies
-- 📊 Structured data ready for research and analysis
-
----
-
-⚡ **Dynamic hosting** - This Data Lifeboat is downloaded fresh each time the Space starts.
-
-*Technical implementation: Docker Space with runtime dataset download via `huggingface_hub`*
-"""
+        # Format template with values
+        readme = template.format(
+            lifeboat_meta_name=lifeboat_meta.name,
+            raw_dataset_repo_id=raw_dataset_repo_id,
+            lifeboat_meta_purpose=lifeboat_meta.purpose,
+        )
+        return readme
 
 
 class LifeboatToHuggingFace:
@@ -460,7 +299,6 @@ class LifeboatToHuggingFace:
     ) -> Dict[str, Any]:
         """Calculate statistics about the dataset"""
         from collections import Counter
-        from datetime import datetime
 
         stats = {
             "total_photos": len(photos),
@@ -556,195 +394,46 @@ class LifeboatToHuggingFace:
                 ]
             )
 
-        card = f"""---
-license: other
-license_name: various-open-licenses
-license_link: https://www.flickr.com/commons/usage/
-tags:
-- flickr
-- flickr-commons
-- data-lifeboat
-size_categories:
-- {size_cat}
-language:
-- en
-task_categories:
-- image-classification
-- image-to-text
-- text-retrieval
-- visual-question-answering
-pretty_name: "{lifeboat_meta.name}"
----
+        # Format distribution
+        format_list = "\n".join(
+            [
+                f"- {fmt}: {count} photos"
+                for fmt, count in stats.get("format_distribution", {}).items()
+            ]
+        )
 
-# {lifeboat_meta.name}
+        # Load template
+        template_path = Path("templates/dataset_card.md.template")
+        template = template_path.read_text()
 
-## Dataset Description
-
-This dataset is a **Flickr Data Lifeboat** converted to Hugging Face format. Data Lifeboats are digital preservation archives created by the [Flickr Foundation](https://www.flickr.org/programs/content-mobility/data-lifeboat/) to ensure long-term access to meaningful collections of Flickr photos and their rich community metadata.
-
-### What is a Data Lifeboat?
-
-Data Lifeboats are self-contained archives designed to preserve not just images, but the **social and cultural context** that makes them meaningful:
-- Complete photo metadata and community interactions
-- User-generated tags, descriptions, and comments  
-- Attribution and licensing information
-- No external dependencies for long-term preservation
-
-**Collection Details:**
-- **Original Collection ID**: `{lifeboat_meta.id}`
-- **Created**: {lifeboat_meta.dateCreated}
-- **Curator**: {lifeboat_meta.creator.name}
-
-### Purpose
-
-{lifeboat_meta.purpose}
-
-## Dataset Statistics
-
-### Collection Overview
-- **Total Photos**: {stats["total_photos"]:,}
-- **Total Tags**: {stats["total_tags"]:,}
-- **Total Comments**: {stats["total_comments"]:,}
-- **Contributors**: {stats["total_contributors"]:,}
-- **Date Range**: {stats.get("earliest_upload", "Unknown")} to {stats.get("latest_upload", "Unknown")}
-- **Photos with Location**: {stats["photos_with_location"]} ({stats["location_percentage"]:.1f}%)
-
-### License Distribution
-{license_list}
-
-### Format Distribution
-{chr(10).join([f"- {fmt}: {count} photos" for fmt, count in stats.get("format_distribution", {}).items()])}
-
-### Engagement Metrics
-- **Average Views**: {stats.get("avg_views", 0):,.0f} (max: {stats.get("max_views", 0):,})
-- **Average Favorites**: {stats.get("avg_faves", 0):,.0f} (max: {stats.get("max_faves", 0):,})
-- **Average Comments**: {stats.get("avg_comments", 0):.1f} (max: {stats.get("max_comments", 0)})
-
-### Top Contributing Institutions/Users
-{top_contrib_list}
-
-## Dataset Structure
-
-### Field Descriptions
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `image` | Image | Original resolution photo |
-| `thumbnail` | Image | Thumbnail version |
-| `photo_id` | string | Unique Flickr identifier |
-| `secret` | string | Flickr URL construction parameter (enables direct access to public domain photos) |
-| `url` | string | Original Flickr URL |
-| `title` | string | Photo title |
-| `description` | string | Photo description |
-| `uploader_username` | string | Username of uploader |
-| `license_label` | string | Human-readable license |
-| `date_taken` | string | When photo was captured |
-| `date_uploaded` | timestamp | When uploaded to Flickr |
-| `latitude/longitude` | float | GPS coordinates (if available) |
-| `count_views/faves/comments` | int | Community engagement metrics |
-| `tags` | list[string] | User-generated tags |
-| `comments` | list[dict] | Full comment threads with metadata |
-
-**Note on `secret` field**: This is a Flickr-specific parameter required for constructing direct image URLs. While normally sensitive, it's appropriate to include here because all photos are public domain and this enables the self-contained nature of Data Lifeboat archives.
-
-## Usage
-
-### Basic Loading
-
-```python
-from datasets import load_dataset
-
-# Load the dataset
-dataset = load_dataset("your-username/dataset-name")
-
-# Access images and metadata
-for example in dataset["train"]:
-    image = example["image"]
-    title = example["title"]
-    tags = example["tags"]
-    comments = example["comments"]
-```
-
-### Research Applications
-
-This dataset is suitable for:
-- **Computer Vision**: Image classification, scene understanding, visual content analysis
-- **Vision-Language**: Image-to-text generation, visual question answering
-- **Digital Humanities**: Cultural heritage analysis, community interaction studies
-- **Information Retrieval**: Text-based image search, tag prediction, metadata analysis
-- **Social Media Research**: Community engagement patterns, collaborative annotation
-
-### Working with Comments and Tags
-
-```python
-# Analyze community engagement
-for example in dataset["train"]:
-    photo_id = example["photo_id"]
-    num_comments = len(example["comments"])
-    tags = example["tags"]
-    
-    print(f"Photo {{photo_id}}: {{num_comments}} comments, {{len(tags)}} tags")
-```
-
-## Source Data
-
-### Data Collection
-
-This collection originates from Flickr's Commons program, which partners with cultural heritage institutions to share photographs with no known copyright restrictions. Photos are selected based on cultural significance, community engagement, and preservation value.
-
-### Community Annotations
-
-All metadata reflects authentic community interaction:
-- **Tags**: User-generated keywords and descriptions
-- **Comments**: Community discussions and reactions
-- **Engagement metrics**: Real view counts, favorites, and interactions
-
-## Licensing and Ethics
-
-### License Information
-
-Photos in this collection have open licenses enabling reuse:
-- Most common: "No known copyright restrictions"
-- Also includes: Creative Commons licenses (CC0, CC BY, etc.)
-- See `license_label` and `license_url` fields for specific licensing per image
-
-### Ethical Considerations
-
-- **Historical Context**: Some photos may depict people, places, or events from historical periods
-- **Community Content**: Comments and tags reflect community perspectives at time of creation
-- **Attribution**: Original photographers and institutions are preserved in metadata
-- **Public Domain**: All content was publicly accessible on Flickr under open licenses
-
-## Citation
-
-```bibtex
-@misc{{{lifeboat_meta.id.lower().replace("_", "_")}}},
-  title = {{{lifeboat_meta.name}}},
-  author = {{{lifeboat_meta.creator.name}}},
-  year = {{2025}},
-  publisher = {{Hugging Face}},
-  url = {{https://huggingface.co/datasets/[dataset-url]}},
-  note = {{Flickr Data Lifeboat digital preservation format}}
-}}
-```
-
-## Additional Information
-
-### Future Considerations
-
-{lifeboat_meta.futureConsiderations}
-
-### About Data Lifeboats
-
-Learn more about the Data Lifeboat initiative:
-- [Data Lifeboat Overview](https://www.flickr.org/programs/content-mobility/data-lifeboat/)
-- [Flickr Foundation](https://www.flickr.org/foundation/)
-- [Commons Program](https://www.flickr.com/commons)
-
-### Dataset Maintenance
-
-This dataset was created using the Flickr Foundation's Data Lifeboat format and converted to Hugging Face using automated tools that preserve all original metadata and community context.
-"""
+        # Format template with values
+        card = template.format(
+            size_cat=size_cat,
+            lifeboat_meta_name=lifeboat_meta.name,
+            lifeboat_meta_id=lifeboat_meta.id,
+            lifeboat_meta_dateCreated=lifeboat_meta.dateCreated,
+            lifeboat_meta_creator_name=lifeboat_meta.creator.name,
+            lifeboat_meta_purpose=lifeboat_meta.purpose,
+            total_photos=stats["total_photos"],
+            total_tags=stats["total_tags"],
+            total_comments=stats["total_comments"],
+            total_contributors=stats["total_contributors"],
+            earliest_upload=stats.get("earliest_upload", "Unknown"),
+            latest_upload=stats.get("latest_upload", "Unknown"),
+            photos_with_location=stats["photos_with_location"],
+            location_percentage=stats["location_percentage"],
+            license_list=license_list,
+            format_list=format_list,
+            avg_views=stats.get("avg_views", 0),
+            max_views=stats.get("max_views", 0),
+            avg_faves=stats.get("avg_faves", 0),
+            max_faves=stats.get("max_faves", 0),
+            avg_comments=stats.get("avg_comments", 0),
+            max_comments=stats.get("max_comments", 0),
+            top_contrib_list=top_contrib_list,
+            lifeboat_meta_id_lower=lifeboat_meta.id.lower().replace("_", "_"),
+            lifeboat_meta_futureConsiderations=lifeboat_meta.futureConsiderations,
+        )
         return card
 
     def save_dataset_locally(
@@ -822,216 +511,36 @@ This dataset was created using the Flickr Foundation's Data Lifeboat format and 
         else:
             size_cat = "10K<n<100K"
 
-        return f"""---
-license: other
-license_name: various-open-licenses
-license_link: https://www.flickr.com/commons/usage/
-tags:
-- flickr-commons
-- data-lifeboat
-size_categories:
-- {size_cat}
-language:
-- en
-pretty_name: "{lifeboat_meta.name} (Raw Data Lifeboat)"
----
+        # Load template
+        template_path = Path("templates/raw_dataset_card.md.template")
+        template = template_path.read_text()
 
-# {lifeboat_meta.name} - Raw Data Lifeboat
+        # Format template with values
+        card = template.format(
+            size_cat=size_cat,
+            lifeboat_meta_name=lifeboat_meta.name,
+            lifeboat_meta_id=lifeboat_meta.id,
+            lifeboat_meta_dateCreated=lifeboat_meta.dateCreated,
+            lifeboat_meta_creator_name=lifeboat_meta.creator.name,
+            lifeboat_meta_purpose=lifeboat_meta.purpose,
+            total_files=total_files,
+            total_size_mb=total_size_mb,
+            processed_dataset_name=lifeboat_meta.name.lower().replace(" ", "-"),
+            lifeboat_meta_id_lower=lifeboat_meta.id.lower(),
+            lifeboat_meta_futureConsiderations=lifeboat_meta.futureConsiderations,
+        )
+        return card
 
-## Overview
-
-This is the **raw, unprocessed version** of the {lifeboat_meta.name} Data Lifeboat - a self-contained digital preservation archive created by the [Flickr Foundation](https://www.flickr.org/programs/content-mobility/data-lifeboat/).
-
-**🔗 ML-Ready Version**: For machine learning applications, see the processed dataset: [`{lifeboat_meta.name.lower().replace(" ", "-")}`](https://huggingface.co/datasets/USERNAME/PLACEHOLDER-PROCESSED)
-
-## What is a Data Lifeboat?
-
-Data Lifeboats are **self-contained archives** designed to preserve not just images, but the complete social and cultural context that makes them meaningful. Unlike traditional datasets, they include:
-
-- 📁 **Complete file structure** with original organization
-- 🌐 **Built-in web viewer** for browsing without external tools
-- 📊 **Rich metadata** preserved in JavaScript format
-- 🔗 **No external dependencies** - everything needed is included
-- 🏛️ **Community context** - tags, comments, and social interactions
-
-## Collection Details
-
-- **Collection ID**: `{lifeboat_meta.id}`
-- **Created**: {lifeboat_meta.dateCreated}
-- **Curator**: {lifeboat_meta.creator.name}
-- **Total Files**: ~{total_files:,}
-- **Archive Size**: ~{total_size_mb:,.0f} MB
-
-### Purpose
-
-{lifeboat_meta.purpose}
-
-## Archive Structure
-
-```
-{lifeboat_meta.id}/
-├── viewer/                    # Built-in web viewer application
-│   ├── index.html            # Main viewer interface  
-│   ├── browse.html           # Browse photos interface
-│   ├── photo.html           # Individual photo viewer
-│   └── static/              # CSS, JavaScript, and assets
-├── metadata/                 # All metadata in JavaScript format
-│   ├── lifeboat.js          # Collection metadata
-│   ├── photoIndex.js        # Index of all photos
-│   ├── tagIndex.js          # Tag index and frequencies
-│   ├── licenseIndex.js      # License information
-│   ├── contributorIndex.js  # User/institution data
-│   ├── albumIndex.js        # Album information
-│   ├── galleryIndex.js      # Gallery data
-│   ├── groupIndex.js        # Group information
-│   └── photos/              # Individual photo metadata
-│       ├── [photo_id].js    # One file per photo
-│       └── ...
-├── media/                   # All image files
-│   ├── originals/           # Full resolution images
-│   └── thumbnails/          # Thumbnail versions
-└── README.html             # Collection documentation
-```
-
-## How to Use This Archive
-
-### Option 1: Web Viewer (Recommended)
-1. Download the entire archive
-2. Open `viewer/index.html` in any web browser
-3. Browse photos, view metadata, and explore the collection
-
-### Option 2: Direct File Access
-- **Images**: `media/originals/` and `media/thumbnails/`
-- **Metadata**: `metadata/` directory contains all structured data
-- **Documentation**: `README.html` for collection details
-
-### Option 3: Programmatic Access
-The metadata is stored in JavaScript format but can be easily parsed:
-
-```python
-import json
-import re
-from pathlib import Path
-
-def parse_js_metadata(js_file_path):
-    \"\"\"Parse JavaScript metadata files\"\"\"
-    content = Path(js_file_path).read_text()
-    # Extract JSON from: var variableName = {...};
-    json_match = re.search(r'var\s+\w+\s*=\s*({{.*}});?', content, re.DOTALL)
-    if json_match:
-        return json.loads(json_match.group(1))
-    return None
-
-# Load collection metadata
-collection_info = parse_js_metadata('metadata/lifeboat.js')
-photo_index = parse_js_metadata('metadata/photoIndex.js')
-```
-
-## Data Format and Standards
-
-### Metadata Format
-- **JavaScript Objects**: Structured data in `.js` files
-- **UTF-8 Encoding**: All text files use UTF-8
-- **Consistent Naming**: File names follow Flickr conventions
-- **Cross-References**: IDs link photos, tags, comments, and users
-
-### Image Format
-- **Originals**: JPEG/PNG in original resolution and format
-- **Thumbnails**: JPEG thumbnails for web viewing
-- **Naming**: `[photo_id]_[secret]_[size].[format]`
-
-### Licensing
-All photos in this collection have open licenses:
-- **Primary**: "No known copyright restrictions" (Commons)
-- **Others**: Various Creative Commons licenses
-- **See**: `metadata/licenseIndex.js` for complete license information
-
-## Preservation Principles
-
-This Data Lifeboat follows digital preservation best practices:
-
-✅ **Self-Contained**: No external dependencies or API calls  
-✅ **Standards-Based**: Uses HTML, CSS, JavaScript - universally supported  
-✅ **Human-Readable**: Can be understood without specialized software  
-✅ **Machine-Readable**: Structured data for computational analysis  
-✅ **Documented**: Comprehensive metadata and documentation included  
-✅ **Portable**: Works on any system with a web browser  
-
-## Research Applications
-
-This raw format is ideal for:
-
-- **Digital Preservation Research**: Studying self-contained archive formats
-- **Metadata Analysis**: Examining community-generated tags and comments
-- **Cultural Heritage**: Preserving social context of cultural artifacts  
-- **Web Archaeology**: Understanding historical web interfaces and formats
-- **Custom Processing**: Building your own analysis tools
-
-## Related Resources
-
-### Processed Version
-For machine learning and computational analysis, use the processed version:
-- **Dataset**: [`{lifeboat_meta.name.lower().replace(" ", "-")}`](https://huggingface.co/datasets/USERNAME/PLACEHOLDER-PROCESSED)
-- **Features**: Images as HuggingFace Image features, structured metadata
-- **Ready-to-use**: Compatible with `datasets` library and ML frameworks
-
-### Learn More
-- [Data Lifeboat Initiative](https://www.flickr.org/programs/content-mobility/data-lifeboat/)
-- [Flickr Foundation](https://www.flickr.org/foundation/)  
-- [Flickr Commons Program](https://www.flickr.com/commons)
-
-## Technical Notes
-
-### Browser Compatibility
-The viewer works in all modern browsers:
-- Chrome/Chromium 70+
-- Firefox 65+
-- Safari 12+
-- Edge 79+
-
-### File Handling
-- Some browsers may restrict local file access for security
-- For full functionality, serve files through a local web server:
-  ```bash
-  # Python 3
-  python -m http.server 8000
-  
-  # Node.js  
-  npx serve .
-  ```
-
-## Citation
-
-```bibtex
-@misc{{{lifeboat_meta.id.lower()}_raw}},
-  title = {{{lifeboat_meta.name} - Raw Data Lifeboat}},
-  author = {{{lifeboat_meta.creator.name}}},
-  year = {{2025}},
-  publisher = {{Hugging Face}},
-  url = {{https://huggingface.co/datasets/[your-username]/[dataset-name]-raw}},
-  note = {{Self-contained digital preservation archive}}
-}}
-```
-
-## Future Considerations
-
-{lifeboat_meta.futureConsiderations}
-
----
-
-**Preservation Notice**: This archive is designed to remain accessible indefinitely. The self-contained format ensures that future researchers can access and understand this collection even if external services or APIs change.
-"""
-
-    def upload_raw_lifeboat(self, repo_id: str, private: bool = True) -> str:
+    def upload_raw_lifeboat(self, repo_id: str, private: bool = True, lifeboat_meta=None) -> str:
         """Upload the raw Data Lifeboat using upload_large_folder"""
-        import os
         import shutil
         import tempfile
 
         api = HfApi()
 
-        # Load metadata before any temporary operations
-        lifeboat_meta = self.loader.load_lifeboat_metadata()
+        # Load metadata if not provided
+        if lifeboat_meta is None:
+            lifeboat_meta = self.loader.load_lifeboat_metadata()
 
         # Define patterns to ignore during upload
         ignore_patterns = [
@@ -1079,8 +588,8 @@ The viewer works in all modern browsers:
                 print_report=True,
             )
 
-        # Create and upload the dataset card for raw format
-        raw_card = self.create_raw_dataset_card()
+        # Create and upload the dataset card for raw format - pass metadata to avoid reloading
+        raw_card = self.create_raw_dataset_card(lifeboat_meta)
 
         # Update the card with the correct paths and repo links
         processed_repo = repo_id.replace("-raw", "")
@@ -1105,8 +614,8 @@ The viewer works in all modern browsers:
         )
 
         raw_card = raw_card.replace(
-            "# Load collection metadata\ncollection_info = parse_js_metadata('metadata/lifeboat.js')\nphoto_index = parse_js_metadata('metadata/photoIndex.js')",
-            f"# Load collection metadata\ncollection_info = parse_js_metadata('data/{lifeboat_name}/metadata/lifeboat.js')\nphoto_index = parse_js_metadata('data/{lifeboat_name}/metadata/photoIndex.js')",
+            "# Load collection metadata\ncollection_info = JavaScriptParser.parse_js_metadata('metadata/lifeboat.js')\nphoto_index = JavaScriptParser.parse_js_metadata('metadata/photoIndex.js')",
+            f"# Load collection metadata\ncollection_info = JavaScriptParser.parse_js_metadata('data/{lifeboat_name}/metadata/lifeboat.js')\nphoto_index = JavaScriptParser.parse_js_metadata('data/{lifeboat_name}/metadata/photoIndex.js')",
         )
 
         api.upload_file(
@@ -1132,9 +641,12 @@ The viewer works in all modern browsers:
 
         print("=== Uploading Dual Data Lifeboat Datasets ===")
 
+        # Load metadata once for both uploads
+        lifeboat_meta = self.loader.load_lifeboat_metadata()
+
         # 1. Upload raw Data Lifeboat first
         print("\n1/2: Uploading Raw Data Lifeboat...")
-        self.upload_raw_lifeboat(raw_repo_id, private=private)
+        self.upload_raw_lifeboat(raw_repo_id, private=private, lifeboat_meta=lifeboat_meta)
 
         # 2. Get data for processed version
         print("\n2/2: Preparing Processed Dataset...")
@@ -1187,7 +699,7 @@ Choose the raw version if you need the complete preservation format or want to u
             commit_message="Update dataset card with raw version cross-reference",
         )
 
-        print(f"\n=== Upload Complete ===")
+        print("\n=== Upload Complete ===")
         print(
             f"📊 Processed Dataset: https://huggingface.co/datasets/{processed_repo_id}"
         )
@@ -1296,7 +808,7 @@ def main():
             print("Creating HuggingFace Dataset...")
             dataset = converter.create_dataset()
 
-            print(f"\nDataset created successfully!")
+            print("\nDataset created successfully!")
             print(f"Number of examples: {len(dataset)}")
             print(f"Features: {list(dataset.features.keys())}")
 
@@ -1319,7 +831,7 @@ def main():
         print("Creating HuggingFace Dataset...")
         dataset = converter.create_dataset()
 
-        print(f"\nDataset created successfully!")
+        print("\nDataset created successfully!")
         print(f"Number of examples: {len(dataset)}")
         print(f"Features: {list(dataset.features.keys())}")
 

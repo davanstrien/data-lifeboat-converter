@@ -1,0 +1,188 @@
+---
+license: other
+license_name: various-open-licenses
+license_link: https://www.flickr.com/commons/usage/
+tags:
+- flickr-commons
+- data-lifeboat
+size_categories:
+- {size_cat}
+language:
+- en
+pretty_name: "{lifeboat_meta_name} (Raw Data Lifeboat)"
+---
+
+# {lifeboat_meta_name} - Raw Data Lifeboat
+
+## Overview
+
+This is the **raw, unprocessed version** of the {lifeboat_meta_name} Data Lifeboat - a self-contained digital preservation archive created by the [Flickr Foundation](https://www.flickr.org/programs/content-mobility/data-lifeboat/).
+
+**🔗 ML-Ready Version**: For machine learning applications, see the processed dataset: [`{processed_dataset_name}`](https://huggingface.co/datasets/USERNAME/PLACEHOLDER-PROCESSED)
+
+## What is a Data Lifeboat?
+
+Data Lifeboats are **self-contained archives** designed to preserve not just images, but the complete social and cultural context that makes them meaningful. Unlike traditional datasets, they include:
+
+- 📁 **Complete file structure** with original organization
+- 🌐 **Built-in web viewer** for browsing without external tools
+- 📊 **Rich metadata** preserved in JavaScript format
+- 🔗 **No external dependencies** - everything needed is included
+- 🏛️ **Community context** - tags, comments, and social interactions
+
+## Collection Details
+
+- **Collection ID**: `{lifeboat_meta_id}`
+- **Created**: {lifeboat_meta_dateCreated}
+- **Curator**: {lifeboat_meta_creator_name}
+- **Total Files**: ~{total_files:,}
+- **Archive Size**: ~{total_size_mb:,.0f} MB
+
+### Purpose
+
+{lifeboat_meta_purpose}
+
+## Archive Structure
+
+```
+{lifeboat_meta_id}/
+├── viewer/                    # Built-in web viewer application
+│   ├── index.html            # Main viewer interface  
+│   ├── browse.html           # Browse photos interface
+│   ├── photo.html           # Individual photo viewer
+│   └── static/              # CSS, JavaScript, and assets
+├── metadata/                 # All metadata in JavaScript format
+│   ├── lifeboat.js          # Collection metadata
+│   ├── photoIndex.js        # Index of all photos
+│   ├── tagIndex.js          # Tag index and frequencies
+│   ├── licenseIndex.js      # License information
+│   ├── contributorIndex.js  # User/institution data
+│   ├── albumIndex.js        # Album information
+│   ├── galleryIndex.js      # Gallery data
+│   ├── groupIndex.js        # Group information
+│   └── photos/              # Individual photo metadata
+│       ├── [photo_id].js    # One file per photo
+│       └── ...
+├── media/                   # All image files
+│   ├── originals/           # Full resolution images
+│   └── thumbnails/          # Thumbnail versions
+└── README.html             # Collection documentation
+```
+
+## How to Use This Archive
+
+### Option 1: Web Viewer (Recommended)
+1. Download the entire archive
+2. Open `viewer/index.html` in any web browser
+3. Browse photos, view metadata, and explore the collection
+
+### Option 2: Direct File Access
+- **Images**: `media/originals/` and `media/thumbnails/`
+- **Metadata**: `metadata/` directory contains all structured data
+- **Documentation**: `README.html` for collection details
+
+### Option 3: Programmatic Access
+The metadata is stored in JavaScript format but can be easily parsed:
+
+```python
+# Using the JavaScriptParser from lifeboat_to_hf
+from lifeboat_to_hf import JavaScriptParser
+
+# Load collection metadata
+collection_info = JavaScriptParser.parse_js_metadata('metadata/lifeboat.js')
+photo_index = JavaScriptParser.parse_js_metadata('metadata/photoIndex.js')
+```
+
+## Data Format and Standards
+
+### Metadata Format
+- **JavaScript Objects**: Structured data in `.js` files
+- **UTF-8 Encoding**: All text files use UTF-8
+- **Consistent Naming**: File names follow Flickr conventions
+- **Cross-References**: IDs link photos, tags, comments, and users
+
+### Image Format
+- **Originals**: JPEG/PNG in original resolution and format
+- **Thumbnails**: JPEG thumbnails for web viewing
+- **Naming**: `[photo_id]_[secret]_[size].[format]`
+
+### Licensing
+All photos in this collection have open licenses:
+- **Primary**: "No known copyright restrictions" (Commons)
+- **Others**: Various Creative Commons licenses
+- **See**: `metadata/licenseIndex.js` for complete license information
+
+## Preservation Principles
+
+This Data Lifeboat follows digital preservation best practices:
+
+✅ **Self-Contained**: No external dependencies or API calls  
+✅ **Standards-Based**: Uses HTML, CSS, JavaScript - universally supported  
+✅ **Human-Readable**: Can be understood without specialized software  
+✅ **Machine-Readable**: Structured data for computational analysis  
+✅ **Documented**: Comprehensive metadata and documentation included  
+✅ **Portable**: Works on any system with a web browser  
+
+## Research Applications
+
+This raw format is ideal for:
+
+- **Digital Preservation Research**: Studying self-contained archive formats
+- **Metadata Analysis**: Examining community-generated tags and comments
+- **Cultural Heritage**: Preserving social context of cultural artifacts  
+- **Web Archaeology**: Understanding historical web interfaces and formats
+- **Custom Processing**: Building your own analysis tools
+
+## Related Resources
+
+### Processed Version
+For machine learning and computational analysis, use the processed version:
+- **Dataset**: [`{processed_dataset_name}`](https://huggingface.co/datasets/USERNAME/PLACEHOLDER-PROCESSED)
+- **Features**: Images as HuggingFace Image features, structured metadata
+- **Ready-to-use**: Compatible with `datasets` library and ML frameworks
+
+### Learn More
+- [Data Lifeboat Initiative](https://www.flickr.org/programs/content-mobility/data-lifeboat/)
+- [Flickr Foundation](https://www.flickr.org/foundation/)  
+- [Flickr Commons Program](https://www.flickr.com/commons)
+
+## Technical Notes
+
+### Browser Compatibility
+The viewer works in all modern browsers:
+- Chrome/Chromium 70+
+- Firefox 65+
+- Safari 12+
+- Edge 79+
+
+### File Handling
+- Some browsers may restrict local file access for security
+- For full functionality, serve files through a local web server:
+  ```bash
+  # Python 3
+  python -m http.server 8000
+  
+  # Node.js  
+  npx serve .
+  ```
+
+## Citation
+
+```bibtex
+@misc{{{lifeboat_meta_id_lower}_raw}},
+  title = {{{lifeboat_meta_name} - Raw Data Lifeboat}},
+  author = {{{lifeboat_meta_creator_name}}},
+  year = {{2025}},
+  publisher = {{Hugging Face}},
+  url = {{https://huggingface.co/datasets/[your-username]/[dataset-name]-raw}},
+  note = {{Self-contained digital preservation archive}}
+}}
+```
+
+## Future Considerations
+
+{lifeboat_meta_futureConsiderations}
+
+---
+
+**Preservation Notice**: This archive is designed to remain accessible indefinitely. The self-contained format ensures that future researchers can access and understand this collection even if external services or APIs change.
