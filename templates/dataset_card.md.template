@@ -22,7 +22,7 @@ pretty_name: "{lifeboat_meta_name}"
 
 ## Dataset Description
 
-This dataset is a **Flickr Data Lifeboat** converted to Hugging Face format. Data Lifeboats are digital preservation archives created by the [Flickr Foundation](https://www.flickr.org/programs/content-mobility/data-lifeboat/) to ensure long-term access to meaningful collections of Flickr photos and their rich community metadata.
+This dataset is a **Flickr Data Lifeboat** converted to a machine learning ready/ Hugging Face datasets compatible format. Data Lifeboats are digital preservation archives created by the [Flickr Foundation](https://www.flickr.org/programs/content-mobility/data-lifeboat/) to ensure long-term access to meaningful collections of Flickr photos and their rich community metadata.
 
 ### What is a Data Lifeboat?
 
