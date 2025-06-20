@@ -1,29 +1,14 @@
 #!/usr/bin/env python3
 """
 Convert Data Lifeboat to Hugging Face Dataset
-
-# /// script
-# dependencies = [
-#     "pydantic>=2.0.0",
-#     "polars>=0.20.0",
-#     "datasets>=2.15.0",
-#     "huggingface_hub>=0.19.0",
-#     "pillow>=10.0.0",
-#     "typing-extensions>=4.0.0",
-#     "hf-xet",
-#     "hf-transfer",
-# ]
-# ///
 """
 
-import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import polars as pl
-from datasets import ClassLabel, Dataset, DatasetDict, Features, Image, Sequence, Value
+from datasets import Dataset, Features, Image, Sequence, Value
 from huggingface_hub import HfApi, create_repo
-from PIL import Image as PILImage
 
 from lifeboat_to_hf import LifeboatLoader, LifeboatToPolars, Photo
 
@@ -39,7 +24,6 @@ class LifeboatToDynamicSpace:
         self, repo_id: str, raw_dataset_repo_id: str, private: bool = False
     ) -> str:
         """Create and upload Dynamic Docker Space that downloads raw Data Lifeboat"""
-        import shutil
         import tempfile
 
         api = HfApi()
@@ -103,43 +87,8 @@ class LifeboatToDynamicSpace:
     def create_dynamic_dockerfile(self, raw_dataset_repo_id: str) -> str:
         """Generate Dockerfile for dynamic Data Lifeboat hosting"""
         dockerfile_template = Path("templates/Dockerfile.dynamic.template")
-        if dockerfile_template.exists():
-            template = dockerfile_template.read_text()
-            return template.format(raw_dataset_repo_id=raw_dataset_repo_id)
-        else:
-            # Fallback inline template
-            return f"""FROM python:3.9-slim
-
-# Create user with ID 1000 (required by Hugging Face Spaces)
-RUN useradd -m -u 1000 user
-
-# Install required packages
-RUN pip install huggingface_hub
-
-# Switch to the user
-USER user
-
-# Set environment variables
-ENV HOME=/home/user \\
-    PATH=/home/user/.local/bin:$PATH
-
-# Set working directory
-WORKDIR $HOME/app
-
-# Copy startup script
-COPY --chown=user:user download_and_serve.py .
-
-# Create data directory for downloads
-RUN mkdir -p /home/user/app/data
-
-# Expose port 7860 (default for HF Spaces)
-EXPOSE 7860
-
-# Environment variable for the raw dataset repository
-ENV RAW_DATASET_REPO="{raw_dataset_repo_id}"
-
-# Start the download and serve script
-CMD ["python", "download_and_serve.py"]"""
+        template = dockerfile_template.read_text()
+        return template.format(raw_dataset_repo_id=raw_dataset_repo_id)
 
     def create_download_script(self) -> str:
         """Generate download and serve script"""
@@ -147,74 +96,7 @@ CMD ["python", "download_and_serve.py"]"""
         if script_template.exists():
             return script_template.read_text()
         else:
-            # Fallback inline script (abbreviated for brevity)
-            return '''#!/usr/bin/env python3
-"""Download and serve Data Lifeboat from HuggingFace Hub"""
-
-import os
-import sys
-import http.server
-import socketserver
-from pathlib import Path
-from huggingface_hub import snapshot_download
-
-def main():
-    raw_repo = os.environ.get("RAW_DATASET_REPO")
-    if not raw_repo:
-        print("❌ Error: RAW_DATASET_REPO environment variable not set")
-        sys.exit(1)
-    
-    print(f"🚢 Starting Dynamic Data Lifeboat Space")
-    print(f"📦 Raw dataset repository: {raw_repo}")
-    
-    download_dir = Path("/home/user/app/data")
-    
-    try:
-        print(f"⬇️ Downloading raw Data Lifeboat...")
-        repo_path = snapshot_download(
-            repo_id=raw_repo,
-            repo_type="dataset",
-            local_dir=str(download_dir),
-            local_dir_use_symlinks=False
-        )
-        
-        # Find the Data Lifeboat directory
-        data_subdir = download_dir / "data"
-        if data_subdir.exists():
-            lifeboat_dirs = [d for d in data_subdir.iterdir() if d.is_dir()]
-            if lifeboat_dirs:
-                serve_directory = str(lifeboat_dirs[0])
-                print(f"✅ Found Data Lifeboat at: {serve_directory}")
-            else:
-                print(f"❌ Error: No Data Lifeboat directory found")
-                sys.exit(1)
-        else:
-            print(f"❌ Error: No data/ directory found")
-            sys.exit(1)
-            
-    except Exception as e:
-        print(f"❌ Error downloading: {e}")
-        sys.exit(1)
-    
-    # Start HTTP server
-    print(f"🌐 Starting HTTP server on port 7860...")
-    os.chdir(serve_directory)
-    
-    class DataLifeboatHandler(http.server.SimpleHTTPRequestHandler):
-        def do_GET(self):
-            if self.path == '/' or self.path == '/index.html':
-                self.send_response(302)
-                self.send_header('Location', '/README.html')
-                self.end_headers()
-                return
-            super().do_GET()
-    
-    with socketserver.TCPServer(("", 7860), DataLifeboatHandler) as httpd:
-        print(f"✅ Data Lifeboat is now available")
-        httpd.serve_forever()
-
-if __name__ == "__main__":
-    main()'''
+            raise FileNotFoundError
 
     def create_space_readme(
         self, repo_id: str, raw_dataset_repo_id: str, lifeboat_meta
@@ -460,7 +342,6 @@ class LifeboatToHuggingFace:
     ) -> Dict[str, Any]:
         """Calculate statistics about the dataset"""
         from collections import Counter
-        from datetime import datetime
 
         stats = {
             "total_photos": len(photos),
@@ -1024,7 +905,6 @@ The viewer works in all modern browsers:
 
     def upload_raw_lifeboat(self, repo_id: str, private: bool = True) -> str:
         """Upload the raw Data Lifeboat using upload_large_folder"""
-        import os
         import shutil
         import tempfile
 
@@ -1187,7 +1067,7 @@ Choose the raw version if you need the complete preservation format or want to u
             commit_message="Update dataset card with raw version cross-reference",
         )
 
-        print(f"\n=== Upload Complete ===")
+        print("\n=== Upload Complete ===")
         print(
             f"📊 Processed Dataset: https://huggingface.co/datasets/{processed_repo_id}"
         )
@@ -1296,7 +1176,7 @@ def main():
             print("Creating HuggingFace Dataset...")
             dataset = converter.create_dataset()
 
-            print(f"\nDataset created successfully!")
+            print("\nDataset created successfully!")
             print(f"Number of examples: {len(dataset)}")
             print(f"Features: {list(dataset.features.keys())}")
 
@@ -1319,7 +1199,7 @@ def main():
         print("Creating HuggingFace Dataset...")
         dataset = converter.create_dataset()
 
-        print(f"\nDataset created successfully!")
+        print("\nDataset created successfully!")
         print(f"Number of examples: {len(dataset)}")
         print(f"Features: {list(dataset.features.keys())}")
 

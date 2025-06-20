@@ -1,22 +1,13 @@
 #!/usr/bin/env python3
 """
 Convert Flickr Data Lifeboat to Hugging Face Dataset using Pydantic and Polars
-
-# /// script
-# dependencies = [
-#     "pydantic>=2.0.0",
-#     "polars>=0.20.0",
-#     "pillow>=10.0.0",
-#     "typing-extensions>=4.0.0"
-# ]
-# ///
 """
 
 import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import polars as pl
 from pydantic import BaseModel, Field, field_validator
@@ -316,7 +307,7 @@ class JavaScriptParser:
             json_str = match.group(1)
             try:
                 return json.loads(json_str)
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError:
                 # Try to fix common issues
                 # Remove trailing commas
                 json_str = re.sub(r",\s*}", "}", json_str)
