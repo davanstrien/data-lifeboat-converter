@@ -531,15 +531,16 @@ class LifeboatToHuggingFace:
         )
         return card
 
-    def upload_raw_lifeboat(self, repo_id: str, private: bool = True) -> str:
+    def upload_raw_lifeboat(self, repo_id: str, private: bool = True, lifeboat_meta=None) -> str:
         """Upload the raw Data Lifeboat using upload_large_folder"""
         import shutil
         import tempfile
 
         api = HfApi()
 
-        # Load metadata before any temporary operations
-        lifeboat_meta = self.loader.load_lifeboat_metadata()
+        # Load metadata if not provided
+        if lifeboat_meta is None:
+            lifeboat_meta = self.loader.load_lifeboat_metadata()
 
         # Define patterns to ignore during upload
         ignore_patterns = [
@@ -587,8 +588,8 @@ class LifeboatToHuggingFace:
                 print_report=True,
             )
 
-        # Create and upload the dataset card for raw format
-        raw_card = self.create_raw_dataset_card()
+        # Create and upload the dataset card for raw format - pass metadata to avoid reloading
+        raw_card = self.create_raw_dataset_card(lifeboat_meta)
 
         # Update the card with the correct paths and repo links
         processed_repo = repo_id.replace("-raw", "")
@@ -640,9 +641,12 @@ class LifeboatToHuggingFace:
 
         print("=== Uploading Dual Data Lifeboat Datasets ===")
 
+        # Load metadata once for both uploads
+        lifeboat_meta = self.loader.load_lifeboat_metadata()
+
         # 1. Upload raw Data Lifeboat first
         print("\n1/2: Uploading Raw Data Lifeboat...")
-        self.upload_raw_lifeboat(raw_repo_id, private=private)
+        self.upload_raw_lifeboat(raw_repo_id, private=private, lifeboat_meta=lifeboat_meta)
 
         # 2. Get data for processed version
         print("\n2/2: Preparing Processed Dataset...")
