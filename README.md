@@ -1,10 +1,12 @@
 # Data Lifeboat to HuggingFace Converter
 
-Convert [Data Lifeboats](https://www.flickr.org/commons/) from the Flickr Foundation into HuggingFace datasets and interactive Spaces for preservation, research, and machine learning.
+Convert [Data Lifeboats](https://www.flickr.org/new-research-report-on-data-lifeboat/) from the [Flickr Foundation](https://www.flickr.org/) into HuggingFace datasets and interactive Spaces for preservation, research, and machine learning.
 
 ## 🚀 Quick Start
 
 ### Installation Options
+
+We suggest using [`uv`](https://docs.astral.sh/uv/) for installing this tool. 
 
 #### Option 1: Install Tool Globally (Recommended)
 
@@ -133,7 +135,7 @@ Dynamic Spaces download Data Lifeboats at runtime, enabling hosting of any size 
 4. All Data Lifeboat features work: viewer, search, metadata browsing
 
 ### Benefits
-- **No size limits** - Can host multi-gigabyte collections
+- **Big size limits** - Can host multi-gigabyte collections
 - **Automatic provisioning** - Content downloaded when Space starts
 - **Archival integrity** - Serves Data Lifeboat exactly as created
 - **Free hosting** - Leverages HuggingFace infrastructure
