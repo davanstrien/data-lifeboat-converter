@@ -614,8 +614,8 @@ class LifeboatToHuggingFace:
         )
 
         raw_card = raw_card.replace(
-            "# Load collection metadata\ncollection_info = parse_js_metadata('metadata/lifeboat.js')\nphoto_index = parse_js_metadata('metadata/photoIndex.js')",
-            f"# Load collection metadata\ncollection_info = parse_js_metadata('data/{lifeboat_name}/metadata/lifeboat.js')\nphoto_index = parse_js_metadata('data/{lifeboat_name}/metadata/photoIndex.js')",
+            "# Load collection metadata\ncollection_info = JavaScriptParser.parse_js_metadata('metadata/lifeboat.js')\nphoto_index = JavaScriptParser.parse_js_metadata('metadata/photoIndex.js')",
+            f"# Load collection metadata\ncollection_info = JavaScriptParser.parse_js_metadata('data/{lifeboat_name}/metadata/lifeboat.js')\nphoto_index = JavaScriptParser.parse_js_metadata('data/{lifeboat_name}/metadata/photoIndex.js')",
         )
 
         api.upload_file(

@@ -316,6 +316,18 @@ class JavaScriptParser:
         else:
             raise ValueError(f"Could not extract JSON data from {file_path}")
 
+    @staticmethod
+    def parse_js_metadata(js_file_path: str) -> dict:
+        """
+        Parse JavaScript metadata files (user-friendly wrapper)
+        Takes string path and returns parsed JSON data
+        """
+        from pathlib import Path
+        
+        file_path = Path(js_file_path)
+        # Use the existing robust parse_js_file method
+        return JavaScriptParser.parse_js_file(file_path)
+
 
 # Data Lifeboat Loader
 
